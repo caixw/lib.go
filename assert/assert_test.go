@@ -59,3 +59,16 @@ func TestNotEqual(t *testing.T) {
 	NotEqual(t, 5, v2, "NotEqual(5,v2) falid")
 	NotEqual(t, v1, v2, "NotEqual(v1,v2) falid")
 }
+
+func TestEmpty(t *testing.T) {
+	Empty(t, 0, "Empty(0) falid")
+	Empty(t, "", "Empty(``) falid")
+	Empty(t, false, "Empty(false) falid")
+	Empty(t, []string{}, "Empty(slice{}) falid")
+}
+
+func TestNotEmpty(t *testing.T) {
+	NotEmpty(t, 1, "NotEmpty(1) falid")
+	NotEmpty(t, true, "NotEmpty(true) falid")
+	NotEmpty(t, []string{"ab"}, "NotEmpty(slice(abc)) falid")
+}
