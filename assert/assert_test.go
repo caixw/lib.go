@@ -9,9 +9,9 @@ import (
 )
 
 func TestAssert(t *testing.T) {
-	Assert(1, t, true, "Assert(true) falid")
-	Assert(1, t, !false, "Assert(!false) falid")
-	Assert(1, t, 5 == 5, "Assert(5==5) falid")
+	Assert(t, true, "Assert(true) falid")
+	Assert(t, !false, "Assert(!false) falid")
+	Assert(t, 5 == 5, "Assert(5==5) falid")
 }
 
 func TestTrue(t *testing.T) {
@@ -65,6 +65,7 @@ func TestEmpty(t *testing.T) {
 	Empty(t, "", "Empty(``) falid")
 	Empty(t, false, "Empty(false) falid")
 	Empty(t, []string{}, "Empty(slice{}) falid")
+	Empty(t, []int{}, "Empty(slice{}) falid")
 }
 
 func TestNotEmpty(t *testing.T) {
