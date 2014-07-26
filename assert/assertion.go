@@ -1,5 +1,5 @@
 // Copyright 2014 by caixw, All rights reserved.
-// Use of a source code is governed by a MIT
+// Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
 package assert
@@ -8,45 +8,58 @@ import (
 	"testing"
 )
 
-// 对testing.T的一个封装，方便在一个测试函数中包含多个断言的情况下使用。
-type assertion struct {
+// Assertion对testing.T进行了简单的封装。可以以调用对象的方式调用包中的
+// 各个函数。方便在一个测试函数中包含多个断言的情况下使用。
+type Assertion struct {
 	t *testing.T
 }
 
-func New(t *testing.T) *assertion {
-	return &assertion{t: t}
+func New(t *testing.T) *Assertion {
+	return &Assertion{t: t}
 }
 
-func (a *assertion) Assert(expr bool, msg string, args ...interface{}) {
-	Assert(a.t, expr, msg, args...)
+func (a *Assertion) True(expr bool, msg ...interface{}) {
+	True(a.t, expr, msg...)
 }
 
-func (a *assertion) True(expr bool, msg string, args ...interface{}) {
-	True(a.t, expr, msg, args...)
+func (a *Assertion) False(expr bool, msg ...interface{}) {
+	False(a.t, expr, msg...)
+}
+func (a *Assertion) Nil(expr interface{}, msg ...interface{}) {
+	Nil(a.t, expr, msg...)
 }
 
-func (a *assertion) False(expr bool, msg string, args ...interface{}) {
-	False(a.t, expr, msg, args...)
-}
-func (a *assertion) Nil(expr interface{}, msg string, args ...interface{}) {
-	Nil(a.t, expr, msg, args...)
+func (a *Assertion) NotNil(expr interface{}, msg ...interface{}) {
+	NotNil(a.t, expr, msg...)
 }
 
-func (a *assertion) NotNil(expr interface{}, msg string, args ...interface{}) {
-	NotNil(a.t, expr, msg, args...)
+func (a *Assertion) Equal(v1, v2 interface{}, msg ...interface{}) {
+	Equal(a.t, v1, v2, msg...)
 }
 
-func (a *assertion) Equal(v1, v2 interface{}, msg string, args ...interface{}) {
-	Equal(a.t, v1, v2, msg, args...)
+func (a *Assertion) NotEqual(v1, v2 interface{}, msg ...interface{}) {
+	NotEqual(a.t, v1, v2, msg...)
 }
 
-func (a *assertion) NotEqual(v1, v2 interface{}, msg string, args ...interface{}) {
-	NotEqual(a.t, v1, v2, msg, args...)
+func (a *Assertion) Empty(expr interface{}, msg ...interface{}) {
+	Empty(a.t, expr, msg...)
+}
+func (a *Assertion) NotEmpty(expr interface{}, msg ...interface{}) {
+	NotEmpty(a.t, expr, msg...)
 }
 
-func (a *assertion) Empty(expr interface{}, msg string, args ...interface{}) {
-	Empty(a.t, expr, msg, args...)
+func (a *Assertion) Error(expr interface{}, msg ...interface{}) {
+	Error(a.t, expr, msg...)
 }
-func (a *assertion) NotEmpty(expr interface{}, msg string, args ...interface{}) {
-	NotEmpty(a.t, expr, msg, args...)
+
+func (a *Assertion) NotError(expr interface{}, msg ...interface{}) {
+	NotError(a.t, expr, msg...)
+}
+
+func (a *Assertion) FileExists(path string, msg ...interface{}) {
+	FileExists(a.t, path, msg...)
+}
+
+func (a *Assertion) FileNotExists(path string, msg ...interface{}) {
+	FileNotExists(a.t, path, msg...)
 }

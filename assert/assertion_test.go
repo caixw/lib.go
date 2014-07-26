@@ -5,13 +5,14 @@
 package assert
 
 import (
+	"errors"
 	"testing"
 )
 
 func TestAssertObj(t *testing.T) {
 	a := New(t)
 
-	a.True(true, "a.True falid")
+	a.True(true)
 	a.True(5 == 5, "a.True(5==5 falid")
 
 	a.False(false, "a.False(false) falid")
@@ -39,8 +40,17 @@ func TestAssertObj(t *testing.T) {
 
 	a.NotEmpty(1, "a.NotEmpty(1) falid")
 
-	a.Nil(v5, "a.Nil(v5) falid")
+	a.Nil(v5)
 
 	a.NotNil(v7, "a.Nil(v7) falid")
 	a.NotNil(v6, "a.NotNil(v6) falid")
+
+	v9 := errors.New("test")
+	a.Error(v9, "a.Error(v9) falid")
+
+	a.NotError("abc", "a.NotError falid")
+
+	a.FileExists("./assert.go", "a.FileExists(c:/windows) falid")
+
+	a.FileNotExists("c:/win", "a.FileNotExists(c:/win) falid")
 }

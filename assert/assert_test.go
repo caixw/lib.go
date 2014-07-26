@@ -5,17 +5,12 @@
 package assert
 
 import (
+	"errors"
 	"testing"
 )
 
-func TestAssert(t *testing.T) {
-	Assert(t, true, "Assert(true) falid")
-	Assert(t, !false, "Assert(!false) falid")
-	Assert(t, 5 == 5, "Assert(5==5) falid")
-}
-
 func TestTrue(t *testing.T) {
-	True(t, true, "True falid")
+	True(t, true)
 	True(t, 1 == 1, "True(1==1) falid")
 }
 
@@ -45,7 +40,7 @@ func TestEqual(t *testing.T) {
 	v1 = 5
 	v2 = 5
 
-	Equal(t, 5, v1, "Equal(5,v1) falid")
+	Equal(t, 5, v1)
 	Equal(t, v1, v2, "Equal(v1,v2) falid")
 }
 
@@ -72,4 +67,22 @@ func TestNotEmpty(t *testing.T) {
 	NotEmpty(t, 1, "NotEmpty(1) falid")
 	NotEmpty(t, true, "NotEmpty(true) falid")
 	NotEmpty(t, []string{"ab"}, "NotEmpty(slice(abc)) falid")
+}
+
+func TestError(t *testing.T) {
+	err := errors.New("test")
+	Error(t, err, "Error(err) falid")
+
+}
+
+func TestNotError(t *testing.T) {
+	NotError(t, "123", "NotError(123) falid")
+}
+
+func TestFileExists(t *testing.T) {
+	FileExists(t, "./assert.go", "FileExists() falid")
+}
+
+func TestFileNotExists(t *testing.T) {
+	FileNotExists(t, "c:/win", "FileNotExists() falid")
 }
