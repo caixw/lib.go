@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file.
 
 // assert是对testing包的一些简单包装。方便在测试包里少写一点代码；
-// 以及两个判断函数：IsEmpty()和IsNil()。
+// 以及三个判断函数：IsEqual、IsEmpty()和IsNil()。
 //
 // 提供了两种操作方式：直接调用包函数；或是使用assertion对象。两
 // 种方式完全等价，可以根据自己需要，选择一种。
@@ -24,4 +24,4 @@
 package assert
 
 // 当前库的版本号
-const Version = "1.3.2.140726"
+const Version = "1.3.3.140728"

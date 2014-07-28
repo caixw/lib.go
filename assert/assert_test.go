@@ -42,14 +42,13 @@ func TestEqual(t *testing.T) {
 
 	Equal(t, 5, v1)
 	Equal(t, v1, v2, "Equal(v1,v2) falid")
+	Equal(t, 5, int8(5))
 }
 
 func TestNotEqual(t *testing.T) {
 	NotEqual(t, 5, 6, "NotEqual(5,6) falid")
 
-	var v1, v2 interface{}
-	v1 = 5
-	v2 = 6
+	var v1, v2 interface{} = 5, 6
 
 	NotEqual(t, 5, v2, "NotEqual(5,v2) falid")
 	NotEqual(t, v1, v2, "NotEqual(v1,v2) falid")
