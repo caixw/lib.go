@@ -2,8 +2,7 @@
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
-// assert是对testing包的一些简单包装。方便在测试包里少写一点代码；
-// 以及三个判断函数：IsEqual、IsEmpty()和IsNil()。
+// assert是对testing包的一些简单包装。方便在测试包里少写一点代码。
 //
 // 提供了两种操作方式：直接调用包函数；或是使用assertion对象。两
 // 种方式完全等价，可以根据自己需要，选择一种。

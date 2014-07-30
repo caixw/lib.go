@@ -90,7 +90,9 @@ func assert(t *testing.T, expr bool, msg1 []interface{}, msg2 []interface{}) {
 	}
 }
 
-// 断言表达式expr为true，否则输出错误信息
+// 断言表达式expr为true，否则输出错误信息。
+// args对应fmt.Printf()函数中的参数，其中args[0]为第一个参数format。
+// 其它函数的args参数，功能与此相同。
 func True(t *testing.T, expr bool, args ...interface{}) {
 	assert(t, expr, args, []interface{}{"True失败，实际值为[%T:%v]", expr, expr})
 }
@@ -108,29 +110,6 @@ func Nil(t *testing.T, expr interface{}, args ...interface{}) {
 // 断言表达式expr为非nil值，否则输出错误信息
 func NotNil(t *testing.T, expr interface{}, args ...interface{}) {
 	assert(t, !IsNil(expr), args, []interface{}{"NotNil失败，实际值为[%T,%v]", expr, expr})
-}
-
-// 判断两个值是否相等
-func IsEqual(v1, v2 interface{}) bool {
-	if v1 == nil && v2 == nil {
-		return true
-	}
-
-	if reflect.DeepEqual(v1, v2) {
-		return true
-	}
-
-	vv1 := reflect.ValueOf(v1)
-	vv2 := reflect.ValueOf(v2)
-	if vv1 == vv2 {
-		return true
-	}
-
-	if vv1.Type().ConvertibleTo(vv2.Type()) {
-		return vv2 == vv1.Convert(vv2.Type())
-	}
-
-	return false
 }
 
 // 断言v1与v2两个值相等，否则输出错误信息
@@ -180,28 +159,6 @@ func FileNotExists(t *testing.T, path string, args ...interface{}) {
 	assert(t, os.IsNotExist(err), args, []interface{}{"FileExists发生以下错误：%v", err.Error()})
 }
 
-// 判断一个值是否为nil
-func IsNil(expr interface{}) bool {
-	if nil == expr {
-		return true
-	}
-
-	v := reflect.ValueOf(expr)
-	k := v.Kind()
-
-	if (k == reflect.Chan ||
-		k == reflect.Func ||
-		k == reflect.Interface ||
-		k == reflect.Map ||
-		k == reflect.Ptr ||
-		k == reflect.Slice) &&
-		v.IsNil() {
-		return true
-	}
-
-	return false
-}
-
 // 判断一个值是否为空(0, "", false, 空数组等)。
 func IsEmpty(expr interface{}) bool {
 	if expr == nil {
@@ -241,6 +198,53 @@ func IsEmpty(expr interface{}) bool {
 		return 0 == v.Len()
 	case reflect.Ptr:
 		return false
+	}
+
+	return false
+}
+
+// 判断一个值是否为nil
+//
+// 当特定类型的变量，已经声明，但还未赋值时，也将返回true
+func IsNil(expr interface{}) bool {
+	if nil == expr {
+		return true
+	}
+
+	v := reflect.ValueOf(expr)
+	k := v.Kind()
+
+	if (k == reflect.Chan ||
+		k == reflect.Func ||
+		k == reflect.Interface ||
+		k == reflect.Map ||
+		k == reflect.Ptr ||
+		k == reflect.Slice) &&
+		v.IsNil() {
+		return true
+	}
+
+	return false
+}
+
+// 判断两个值是否相等
+func IsEqual(v1, v2 interface{}) bool {
+	if v1 == nil && v2 == nil {
+		return true
+	}
+
+	if reflect.DeepEqual(v1, v2) {
+		return true
+	}
+
+	vv1 := reflect.ValueOf(v1)
+	vv2 := reflect.ValueOf(v2)
+	if vv1 == vv2 {
+		return true
+	}
+
+	if vv1.Type().ConvertibleTo(vv2.Type()) {
+		return vv2 == vv1.Convert(vv2.Type())
 	}
 
 	return false
