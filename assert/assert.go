@@ -228,6 +228,7 @@ func IsNil(expr interface{}) bool {
 }
 
 // 判断两个值是否相等
+// 若两个值的reflect.Value.IsValid都为false，将返回false，而不true
 func IsEqual(v1, v2 interface{}) bool {
 	if v1 == nil && v2 == nil {
 		return true
@@ -239,6 +240,11 @@ func IsEqual(v1, v2 interface{}) bool {
 
 	vv1 := reflect.ValueOf(v1)
 	vv2 := reflect.ValueOf(v2)
+
+	if !vv1.IsValid() || !vv2.IsValid() {
+		return false
+	}
+
 	if vv1 == vv2 {
 		return true
 	}
