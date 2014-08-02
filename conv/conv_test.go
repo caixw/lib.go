@@ -345,8 +345,9 @@ func TestSlice(t *testing.T) {
 
 /////////////////////////////// Map
 type test1 struct {
-	Id   int
-	Name string
+	Id       int
+	Name     string
+	password string
 }
 
 func TestMap(t *testing.T) {
@@ -357,7 +358,7 @@ func TestMap(t *testing.T) {
 	}
 
 	fn(map[string]interface{}{"1": 1, "2": 3}, map[string]interface{}{"1": 1, "2": 3})
-	obj := &test1{5, "admin"}
+	obj := &test1{5, "admin", "abc"}
 	fn(obj, map[string]interface{}{"Id": 5, "Name": "admin"})
 
 }

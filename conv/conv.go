@@ -6,7 +6,6 @@ package conv
 
 import (
 	"fmt"
-	"reflect"
 	"strconv"
 	"strings"
 )
@@ -571,31 +570,6 @@ func MustSlice(val interface{}, def []interface{}) []interface{} {
 	}
 }
 
-// 将一个obj转换成map，只导出可导出的部分，
-// 其它的自动放弃，如小写名称的字段无法导出。
-func obj2Map(obj interface{}) (map[string]interface{}, error) {
-	objVal := reflect.ValueOf(obj)
-	if objVal.Kind() == reflect.Ptr {
-		objVal = objVal.Elem()
-	}
-
-	if objVal.Kind() != reflect.Struct {
-		return nil, typeError(obj, "map[string]interface{}")
-	}
-
-	objType := objVal.Type()
-	num := objType.NumField()
-	ret := make(map[string]interface{}, num)
-	for i := 0; i < num; i++ {
-		v := objVal.Field(i)
-		if v.IsValid() {
-			ret[objType.Field(i).Name] = v.Interface()
-		}
-	}
-
-	return ret, nil
-}
-
 // 将val转换成map[string]interface{}类型或是在无法转换的情况下返回error。
 // 若传递的val是一个struct对象，则会将属性转换成map字段。
 func Map(val interface{}) (map[string]interface{}, error) {
@@ -603,7 +577,7 @@ func Map(val interface{}) (map[string]interface{}, error) {
 	case map[string]interface{}:
 		return ret, nil
 	default:
-		return obj2Map(val)
+		return Obj2Map(val, nil)
 	}
 }
 
