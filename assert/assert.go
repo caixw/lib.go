@@ -237,7 +237,6 @@ func IsEqual(v1, v2 interface{}) bool {
 	if reflect.DeepEqual(v1, v2) {
 		return true
 	}
-
 	vv1 := reflect.ValueOf(v1)
 	vv2 := reflect.ValueOf(v2)
 
@@ -249,8 +248,12 @@ func IsEqual(v1, v2 interface{}) bool {
 		return true
 	}
 
-	if vv1.Type().ConvertibleTo(vv2.Type()) {
-		return vv2 == vv1.Convert(vv2.Type())
+	vv1Type := vv1.Type()
+	vv2Type := vv2.Type()
+	if vv1Type.ConvertibleTo(vv2Type) {
+		return vv2.Interface() == vv1.Convert(vv2Type).Interface()
+	} else if vv2Type.ConvertibleTo(vv1Type) {
+		return vv1.Interface() == vv2.Convert(vv1Type).Interface()
 	}
 
 	return false

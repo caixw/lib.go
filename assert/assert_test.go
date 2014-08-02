@@ -42,7 +42,7 @@ func TestEqual(t *testing.T) {
 
 	Equal(t, 5, v1)
 	Equal(t, v1, v2, "Equal(v1,v2) falid")
-	Equal(t, 5, int8(5))
+	Equal(t, int8(126), 126)
 }
 
 func TestNotEqual(t *testing.T) {
@@ -52,6 +52,7 @@ func TestNotEqual(t *testing.T) {
 
 	NotEqual(t, 5, v2, "NotEqual(5,v2) falid")
 	NotEqual(t, v1, v2, "NotEqual(v1,v2) falid")
+	NotEqual(t, 128, int8(127))
 }
 
 func TestEmpty(t *testing.T) {
