@@ -15,14 +15,12 @@ import (
 	"testing"
 )
 
-// 是否输出详细的信息，如断言发生的文件，行数等。
-const showCallerInfo = true
-
-// 获取某个pc寄存器中的函数名，去掉函数名之前的路径信息。
+// 获取某个pc寄存器中的函数名，并去掉函数名之前的路径信息。
 func funcName(pc uintptr) string {
 	if pc == 0 {
-		return "<unknown func>"
+		return "<无法获取函数信息>"
 	}
+
 	name := runtime.FuncForPC(pc).Name()
 	arr := strings.Split(name, "/")
 	return arr[len(arr)-1]
@@ -60,21 +58,21 @@ func formatMessage(msg1 []interface{}, msg2 []interface{}) string {
 	}
 
 	if len(msg) == 0 {
-		return ""
+		return "<未提供任何错误信息>"
 	}
 
 	format := ""
 	switch v := msg[0].(type) {
+	case []byte:
+		format = string(v)
+	case []rune:
+		format = string(v)
 	case string:
 		format = v
 	case fmt.Stringer:
 		format = v.String()
 	default:
-		return ""
-	}
-
-	if showCallerInfo {
-		format += getCallerInfo()
+		return "<无法正确转换错误提示信息>"
 	}
 
 	return fmt.Sprintf(format, msg[1:]...)
@@ -83,10 +81,10 @@ func formatMessage(msg1 []interface{}, msg2 []interface{}) string {
 // 当expr条件不成立时，输出错误信息。
 // expr 返回结果值为bool类型的表达式；
 // msg1,msg2输出的错误信息，之所以提供两组信息，是方便在用户没有提供的情况下，
-// 可以使用系统内部提供的信息。
+// 可以使用系统内部提供的信息，优先使用msg1中的信息，若不存在，则使用msg2的内容。
 func assert(t *testing.T, expr bool, msg1 []interface{}, msg2 []interface{}) {
 	if !expr {
-		t.Error(formatMessage(msg1, msg2))
+		t.Error(formatMessage(msg1, msg2) + getCallerInfo())
 	}
 }
 
@@ -132,16 +130,26 @@ func NotEmpty(t *testing.T, expr interface{}, args ...interface{}) {
 	assert(t, !IsEmpty(expr), args, []interface{}{"NotEmpty失败，实际值为[%T:%v]", expr, expr})
 }
 
-// 断言expr的类型为error，否则输出错误信息
+// 断言有错误发生，否则输出错误信息
+// 传递未初始化的error值(var err error = nil)，将断言失败
 func Error(t *testing.T, expr interface{}, args ...interface{}) {
-	_, ok := expr.(error)
-	assert(t, ok, args, []interface{}{"Error失败，实际类型为[%T]", expr})
+	if IsNil(expr) { // 空值，必定没有错误
+		assert(t, false, args, []interface{}{"Error失败，实际类型为[%T]", expr})
+	} else {
+		_, ok := expr.(error)
+		assert(t, ok, args, []interface{}{"Error失败，实际类型为[%T]", expr})
+	}
 }
 
-// 断言expr的类型为非error，否则输出错误信息
+// 断言没有错误发生，否则输出错误信息
 func NotError(t *testing.T, expr interface{}, args ...interface{}) {
-	_, ok := expr.(error)
-	assert(t, !ok, args, []interface{}{"NotError失败"})
+	if IsNil(expr) { // 空值必定没有错误
+		assert(t, true, args, []interface{}{"NotError失败，实际类型为[%T]", expr})
+		return
+	} else {
+		err, ok := expr.(error)
+		assert(t, !ok, args, []interface{}{"NotError失败，错误信息为[%v]", err})
+	}
 }
 
 // 断言文件存在，否则输出错误信息
@@ -203,8 +211,7 @@ func IsEmpty(expr interface{}) bool {
 	return false
 }
 
-// 判断一个值是否为nil
-//
+// 判断一个值是否为nil。
 // 当特定类型的变量，已经声明，但还未赋值时，也将返回true
 func IsNil(expr interface{}) bool {
 	if nil == expr {
@@ -227,7 +234,7 @@ func IsNil(expr interface{}) bool {
 	return false
 }
 
-// 判断两个值是否相等
+// 判断两个值是否相等。
 // 若两个值的reflect.Value.IsValid都为false，将返回false，而不true
 func IsEqual(v1, v2 interface{}) bool {
 	if v1 == nil && v2 == nil {

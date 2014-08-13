@@ -8,14 +8,20 @@ import (
 	"testing"
 )
 
-// Assertion对testing.T进行了简单的封装。可以以调用对象的方式调用包中的
-// 各个函数。方便在一个测试函数中包含多个断言的情况下使用。
+// Assertion是对testing.T进行了简单的封装。可以以调用对象的方式调用包中的
+// 各个断言函数，减少了参数t的传递。
 type Assertion struct {
 	t *testing.T
 }
 
+// 返回Assertion对象。
 func New(t *testing.T) *Assertion {
 	return &Assertion{t: t}
+}
+
+// 返回testing.T对象
+func (a *Assertion) T() *testing.T {
+	return a.t
 }
 
 func (a *Assertion) True(expr bool, msg ...interface{}) {

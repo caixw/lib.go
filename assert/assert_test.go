@@ -9,6 +9,36 @@ import (
 	"testing"
 )
 
+func TestGetCallerInfo(t *testing.T) {
+	str := getCallerInfo()
+	if len(str) == 0 {
+		t.Error("getCallerInfo()无法正确返回信息")
+	} else {
+		t.Logf("getCallerInfo()返回的内容为：[%v]", str)
+	}
+}
+
+func TestFormatMsg(t *testing.T) {
+	msg1 := []interface{}{}
+	msg2 := []interface{}{[]rune("msg:%v"), 2}
+	msg3 := []interface{}{"msg:%v", 3}
+
+	str := formatMessage(msg1, msg2)
+	if str != "msg:2" {
+		t.Errorf("formatMessage(msg1,msg2)返回信息错误:[%v]", str)
+	}
+
+	str = formatMessage(nil, msg2)
+	if str != "msg:2" {
+		t.Errorf("formatMessage(msg1,msg2)返回信息错误:[%v]", str)
+	}
+
+	str = formatMessage(msg2, msg3)
+	if str != "msg:2" {
+		t.Errorf("formatMessage(msg2,msg3)返回信息错误:[%v]", str)
+	}
+}
+
 func TestTrue(t *testing.T) {
 	True(t, true)
 	True(t, 1 == 1, "True(1==1) falid")
@@ -72,11 +102,13 @@ func TestNotEmpty(t *testing.T) {
 func TestError(t *testing.T) {
 	err := errors.New("test")
 	Error(t, err, "Error(err) falid")
-
 }
 
 func TestNotError(t *testing.T) {
 	NotError(t, "123", "NotError(123) falid")
+
+	var err1 error = nil
+	NotError(t, err1, "var err1 error falid")
 }
 
 func TestFileExists(t *testing.T) {

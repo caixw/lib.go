@@ -12,6 +12,10 @@ import (
 func TestAssertObj(t *testing.T) {
 	a := New(t)
 
+	if t != a.T() {
+		t.Error("a.T与t不相等")
+	}
+
 	a.True(true)
 	a.True(5 == 5, "a.True(5==5 falid")
 
