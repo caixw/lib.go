@@ -26,8 +26,10 @@ func funcName(pc uintptr) string {
 	return arr[len(arr)-1]
 }
 
-// 定位到测试包中的信息，并输出信息。
-// 若测试包中的函数是嵌套调用的，则有可能显示不正确。
+// go test输出的错误信息中，包含的并不_test.go文件中的
+// 定位信息，有时候很难找到在_test.go中的具体位置，此
+// 函数的作用就是定位到_test.go文件中的具体位置，并返回。
+// 若测试包中的函数是嵌套调用的，则有可能不正确。
 func getCallerInfo() string {
 	for i := 0; ; i++ {
 		pc, file, line, ok := runtime.Caller(i)
@@ -38,6 +40,7 @@ func getCallerInfo() string {
 		basename := path.Base(file)
 
 		// 定位以_test.go结尾的文件，认定为起始调用的测试包。
+		// 8 == len("_test.go")
 		l := len(basename)
 		if l < 8 || (basename[l-8:l] != "_test.go") {
 			continue
@@ -145,7 +148,6 @@ func Error(t *testing.T, expr interface{}, args ...interface{}) {
 func NotError(t *testing.T, expr interface{}, args ...interface{}) {
 	if IsNil(expr) { // 空值必定没有错误
 		assert(t, true, args, []interface{}{"NotError失败，实际类型为[%T]", expr})
-		return
 	} else {
 		err, ok := expr.(error)
 		assert(t, !ok, args, []interface{}{"NotError失败，错误信息为[%v]", err})
