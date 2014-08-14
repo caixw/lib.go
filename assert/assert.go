@@ -26,9 +26,9 @@ func funcName(pc uintptr) string {
 	return arr[len(arr)-1]
 }
 
-// go test输出的错误信息中，包含的并不_test.go文件中的
-// 定位信息，有时候很难找到在_test.go中的具体位置，此
-// 函数的作用就是定位到_test.go文件中的具体位置，并返回。
+// go test输出的错误信息中，并不包含_test.go文件中的定
+// 位信息，有时候很难找到在_test.go中的具体位置，此函
+// 数的作用就是定位到_test.go文件中的具体位置，并返回。
 // 若测试包中的函数是嵌套调用的，则有可能不正确。
 func getCallerInfo() string {
 	for i := 0; ; i++ {

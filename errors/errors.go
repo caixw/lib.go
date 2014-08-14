@@ -13,43 +13,43 @@ import (
 )
 
 // 当前库的版本
-const Version = "0.1.0.140811"
+const Version = "0.1.1.140814"
 
-type errors struct {
-	previous *errors //错误链接中的前一个错误
+type Errors struct {
+	previous *Errors //错误链接中的前一个错误
 	code     int
 	msg      string
 }
 
-func (e *errors) Error() string {
+func (e *Errors) Error() string {
 	return e.msg
 }
 
 // 返回错误代码。
-func (e *errors) GetCode() int {
+func (e *Errors) GetCode() int {
 	return e.code
 }
 
 // 返回错误链接中的前一个错误，若没有，则返回nil。
-func (e *errors) GetPrevious() *errors {
+func (e *Errors) GetPrevious() *Errors {
 	return e.previous
 }
 
-func New(code int, previous error, s string) *errors {
+func New(code int, previous error, s string) *Errors {
 	if previous == nil {
-		return &errors{code: code, previous: nil, msg: s}
+		return &Errors{code: code, previous: nil, msg: s}
 	}
 
-	err, ok := previous.(*errors)
+	err, ok := previous.(*Errors)
 	if !ok {
-		err = &errors{msg: err.Error()}
+		err = &Errors{msg: err.Error()}
 	}
 
-	return &errors{code: code, previous: err, msg: s}
+	return &Errors{code: code, previous: err, msg: s}
 
 }
 
 // 带格式化的New
-func Newf(code int, previous error, format string, args ...interface{}) *errors {
+func Newf(code int, previous error, format string, args ...interface{}) *Errors {
 	return New(code, previous, fmt.Sprintf(format, args...))
 }
