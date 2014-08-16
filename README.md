@@ -19,3 +19,6 @@ Go语言的一些常用库。详细文档可以通过以下地址查看：
 
 #### errors
 对系统errors的简单扩展。
+
+#### session
+web服务器的session管理包。
