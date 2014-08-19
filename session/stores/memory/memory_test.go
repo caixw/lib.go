@@ -21,7 +21,7 @@ func hello(a *assert.Assertion, w http.ResponseWriter) {
 }
 
 func freeSession(a *assert.Assertion, inst *sess.Instance, w http.ResponseWriter, r *http.Request) {
-	err := inst.FreeSession(w, r)
+	err := inst.EndSession(w, r)
 	a.NotError(err)
 }
 

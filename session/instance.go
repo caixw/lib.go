@@ -8,8 +8,6 @@ import (
 	"net/http"
 	"net/url"
 	"time"
-
-	e "github.com/caixw/lib.go/errors"
 )
 
 type Instance struct {
@@ -69,11 +67,11 @@ func (i *Instance) StartSessionWithForm(r *http.Request) (*Session, error) {
 	}
 
 	if err != nil {
-		return nil, e.New(0, nil, "初始化Session失败")
+		return nil, err
 	}
 
 	if sess, err := i.store.Get(sessid); err != nil {
-		return nil, e.New(0, nil, "初始化Session失败")
+		return nil, err
 	} else {
 		return sess, nil
 	}
@@ -93,20 +91,20 @@ func (i *Instance) StartSession(w http.ResponseWriter, r *http.Request) (*Sessio
 	}
 
 	if err != nil {
-		return nil, e.New(0, err, "无法初始化新的session")
+		return nil, err
 	}
 
 	sess, err := i.store.Get(sessid)
 	if err != nil {
-		return nil, e.New(0, err, "无法初始化新的session")
+		return nil, err
 	}
 
-	i.setCookie(r, w, sessid, i.lifetime)
+	i.setCookie(w, sessid, i.lifetime)
 	return sess, nil
 }
 
-// 释放当前协程下的Session
-func (i *Instance) FreeSession(w http.ResponseWriter, r *http.Request) error {
+// 结束当前的session。这将会使保存Sessionid的cookie失效。
+func (i *Instance) EndSession(w http.ResponseWriter, r *http.Request) error {
 	cookie, err := r.Cookie(i.sessIDName)
 	if err != nil {
 		return err
@@ -117,20 +115,24 @@ func (i *Instance) FreeSession(w http.ResponseWriter, r *http.Request) error {
 
 	sessid, err := url.QueryUnescape(cookie.Value)
 	if err != nil {
-		return e.Newf(0, err, "无法释放Session:sid=[%v]", sessid)
+		return err
 	}
 
-	err = i.store.Delete(sessid)
+	return i.DeleteSession(w, sessid)
+}
+
+// 删除一个Session
+func (i *Instance) DeleteSession(w http.ResponseWriter, sessid string) error {
+	err := i.store.Delete(sessid)
 	if err != nil {
-		return e.Newf(0, err, "无法释放Session:sid=[%v]", sessid)
+		return err
 	}
 
-	i.setCookie(r, w, sessid, -1)
-
+	i.setCookie(w, sessid, -1)
 	return nil
 }
 
-// 释放整个SessionManager及相关数据。
+// 释放整个store的数据并停止回收GC。
 func (i *Instance) Free() {
 	if i.ticker != nil {
 		i.ticker.Stop()
@@ -139,7 +141,7 @@ func (i *Instance) Free() {
 }
 
 // 设置相应的cookie值
-func (i *Instance) setCookie(r *http.Request, w http.ResponseWriter, sessid string, maxAge int) {
+func (i *Instance) setCookie(w http.ResponseWriter, sessid string, maxAge int) {
 	cookie := &http.Cookie{
 		Name:     i.sessIDName,
 		Value:    url.QueryEscape(sessid),

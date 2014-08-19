@@ -13,7 +13,7 @@ import (
 )
 
 // 当前库的版本
-const Version = "0.1.1.140814"
+const Version = "0.1.2.140819"
 
 type Errors struct {
 	previous *Errors //错误链接中的前一个错误
@@ -42,7 +42,7 @@ func New(code int, previous error, s string) *Errors {
 
 	err, ok := previous.(*Errors)
 	if !ok {
-		err = &Errors{msg: err.Error()}
+		err = &Errors{msg: previous.Error()}
 	}
 
 	return &Errors{code: code, previous: err, msg: s}

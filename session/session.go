@@ -5,16 +5,13 @@
 package session
 
 import (
+	"crypto/md5"
 	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"io"
 	"sync"
 	"time"
-)
-
-const (
-	// sessionid的长度
-	sessionIDLen = 32
 )
 
 // session可回收利用的对象池
@@ -29,6 +26,11 @@ type Session struct {
 	store    Store
 	id       string
 	accessed time.Time
+}
+
+// sessionid
+func (s *Session) ID() string {
+	return s.id
 }
 
 // 获取某个Session的值
@@ -81,11 +83,18 @@ func (s *Session) Save() error {
 }
 
 // 获取最后的存取时间
-func (s *Session) GetAccessed() time.Time {
+func SessionAccessed(s *Session) time.Time {
 	return s.accessed
 }
 
-// 释放Session。一般由store的实现者调用。
+// 获取Session中的数据。
+// 供Store实现者调用
+func SessionData(s *Session) map[interface{}]interface{} {
+	return s.data
+}
+
+// 释放Session。
+// 供Store实现者调用。
 func FreeSession(s *Session) {
 	s.Lock()
 	defer s.Unlock()
@@ -108,11 +117,13 @@ func NewSession(sid string, data map[interface{}]interface{}, s Store) *Session 
 
 // 产生一个唯一的SessionID
 func sessionID() (string, error) {
-	ret := make([]byte, sessionIDLen)
+	ret := make([]byte, 64)
 	n, err := io.ReadFull(rand.Reader, ret)
 	if n == 0 {
 		return "", errors.New("未读取到随机数")
 	}
 
-	return string(ret), err
+	h := md5.New()
+	h.Write(ret)
+	return hex.EncodeToString(h.Sum(nil)), err
 }
