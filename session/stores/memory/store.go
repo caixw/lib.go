@@ -74,7 +74,7 @@ func (s *store) GC(duration int) {
 
 	t := time.Now().Unix() - int64(duration) // 过期时间
 	for k, v := range s.sessions {
-		if v.GetAccessed().Unix() < t {
+		if session.SessionAccessed(v).Unix() < t {
 			s.Delete(k)
 		}
 	}
