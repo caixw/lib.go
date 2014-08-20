@@ -24,3 +24,6 @@ _testmain.go
 
 # vim
 *.swp
+
+# 项目中产生的垃圾文件
+session/stores/file/testdata/*

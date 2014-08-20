@@ -1,10 +1,6 @@
-lib.go [![Build Status](https://travis-ci.org/caixw/lib.go.svg?branch=master)](https://travis-ci.org/caixw/lib.go) [![Go Walker](http://gowalker.org/api/v1/badge)](http://gowalker.org/github.com/caixw/lib.go) [![GoDoc](https://godoc.org/github.com/caixw/lib.go/assert?status.svg)](https://godoc.org/github.com/caixw/lib.go)
+lib.go [![Build Status](https://travis-ci.org/caixw/lib.go.svg?branch=master)](https://travis-ci.org/caixw/lib.go) [![Go Walker](http://gowalker.org/api/v1/badge)](http://gowalker.org/github.com/caixw/lib.go) [![GoDoc](https://godoc.org/github.com/caixw/lib.go/assert?status.svg)](https://godoc.org/github.com/caixw/lib.go) [![license](http://img.shields.io/badge/license-MIT-red.svg?style=flat)](https://github.com/caixw/lib.go/blob/master/LICENSE)
 =====
 
-### 授权协议
-本项目采用[MIT](http://opensource.org/licenses/MIT)开源许可协议，完整授权说明可以查看LICENSE文件！
-
-### 关于
 Go语言包的一个集合，包含各个方面，比较杂乱。
 
 每个包都提供了一个版本号(Version)表示包的兼容情况：若主版本发
