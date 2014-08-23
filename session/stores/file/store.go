@@ -29,9 +29,19 @@ type store struct {
 
 var _ session.Store = &store{}
 
-// new
-// saveDir:session的保存路径
+// 新建Store
+//
+// saveDir:session的保存路径，若目录不存在，会尝试创建。
 func New(saveDir string) *store {
+	_, err := os.Stat(saveDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			os.MkdirAll(saveDir, mode)
+		} else if !os.IsExist(err) {
+			panic(err)
+		}
+	}
+
 	// 确保最后个字符为os.PathSeparator
 	lastRune := saveDir[len(saveDir)-1]
 	if lastRune != os.PathSeparator && lastRune != '\\' {
