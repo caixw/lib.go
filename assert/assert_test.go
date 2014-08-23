@@ -73,6 +73,8 @@ func TestEqual(t *testing.T) {
 	Equal(t, 5, v1)
 	Equal(t, v1, v2, "Equal(v1,v2) falid")
 	Equal(t, int8(126), 126)
+	Equal(t, int64(126), int8(126))
+	Equal(t, uint(7), int(7))
 }
 
 func TestNotEqual(t *testing.T) {

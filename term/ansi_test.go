@@ -29,11 +29,11 @@ func TestColor(t *testing.T) {
 	t.Logf("%mBWhite", BWhite)
 	t.Logf("%mBDefault", BDefault)
 
-	for i := 0; i < 256; i++ {
+	for i := 0; i < 256; i += 10 {
 		t.Logf("%m字体颜色%d", FColor256(i), i)
 	}
 
-	for i := 0; i < 256; i++ {
+	for i := 0; i < 256; i += 10 {
 		t.Logf("%m背景颜色%d", BColor256(i), i)
 	}
 
