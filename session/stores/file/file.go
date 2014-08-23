@@ -2,6 +2,7 @@
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
+// session的文件存储模式
 package file
 
 import (
@@ -17,8 +18,12 @@ import (
 
 // TODO(caixw) 将普通的锁改为文件锁。
 
-// 所有Session文件的权限
-const mode = 0666
+const (
+	// 版本号
+	Version = "0.1.2.140823"
+	// 所有Session文件的权限
+	mode = 0666
+)
 
 // implement session.Store
 type store struct {

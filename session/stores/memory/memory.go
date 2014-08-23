@@ -2,6 +2,7 @@
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
+// session的内存存储模式
 package memory
 
 import (
@@ -10,6 +11,9 @@ import (
 
 	"github.com/caixw/lib.go/session"
 )
+
+// 当前包的版本
+const Version = "0.1.2.140823"
 
 // implement session.Store
 type store struct {
