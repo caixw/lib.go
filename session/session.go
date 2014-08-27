@@ -68,6 +68,8 @@ func (s *Session) Delete(key interface{}) {
 	delete(s.data, key)
 }
 
+// 保存并删除当前Session的内容。
+// 必须释放Session，否则可能造成内存泄漏。
 func (s *Session) Release() error {
 	s.Lock()
 	defer s.Unlock()

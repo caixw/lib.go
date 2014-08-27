@@ -5,8 +5,9 @@
 package version
 
 import (
-	"github.com/caixw/lib.go/assert"
 	"testing"
+
+	"github.com/caixw/lib.go/assert"
 )
 
 func TestParse(t *testing.T) {
@@ -23,6 +24,7 @@ func TestParse(t *testing.T) {
 		{"0.1.build1004", []string{"0", "1", "build", "1004"}},
 		{"0.1+build1004.1", []string{"0", "1", "build", "1004", "1"}},
 		{"0.1-1.0", []string{"0", "1", "1", "0"}},
+		// {"1.0.1构建日期2014", []string{"1", "0", "1", "构建日期", "2014"}},
 	}
 
 	for _, v := range vals {
@@ -65,5 +67,4 @@ func TestCompare(t *testing.T) {
 			a.Equal(Compare(v.v1, v.v2), 0, "在%v个元素[%v]出错", k, v)
 		}
 	}
-
 }

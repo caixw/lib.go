@@ -425,6 +425,10 @@ func String(val interface{}) (string, error) {
 		return strconv.FormatFloat(ret, 'f', -1, 64), nil
 	case bool:
 		return strconv.FormatBool(ret), nil
+	case fmt.Stringer:
+		return ret.String(), nil
+	case error:
+		return ret.Error(), nil
 	default:
 		return "", typeError(ret, "string")
 	}

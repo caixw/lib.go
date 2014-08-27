@@ -20,3 +20,6 @@ Go语言包的一个集合，包含各个方面，比较杂乱。
 
 #### session
 web服务器的session管理包。
+
+#### encoding/version
+版本号的比较和解析。
