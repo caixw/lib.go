@@ -160,6 +160,9 @@ func (r *Reader) newSyntaxError(msg string) error {
 
 // 将ini转换成map[string]interface{}返回。
 //
+// 没有与之相对就的MarshalMap，因为map是无序的，若一个map带了section，则转换结
+// 果未必是正确的。
+//
 // 若section参数不为空，则表示只返回section的内容，若没有对应内容，则返回空值
 func UnmarshalMap(data []byte, section string) (map[string]interface{}, error) {
 	if len(data) == 0 {

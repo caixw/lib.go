@@ -6,19 +6,20 @@ package ini
 
 import (
 	"bufio"
-	"bytes"
 	"io"
-
-	"github.com/caixw/lib.go/conv"
 )
 
-// 用于输出ini内容到指定的io.Writer
+// 用于输出ini内容到指定的io.Writer。
+//
+// 内容并不是实时写入io.Writer的，需要调用Writer.Flush()
+// 才会真正地写入到io.Writer流中。
 type Writer struct {
 	buf    *bufio.Writer
 	line   int
 	symbol byte
 }
 
+// 从一个io.Writer初始化Writer
 func NewWriter(w io.Writer) *Writer {
 	return &Writer{
 		buf:    bufio.NewWriter(w),
@@ -74,40 +75,4 @@ func (w *Writer) AddComment(comment string) *Writer {
 // 将内容输出到io.Writer中
 func (w *Writer) Flush() {
 	w.buf.Flush()
-}
-
-// 将map[string]interface{}转换成ini格式字符串
-func MarshalMap(m map[string]interface{}) ([]byte, error) {
-	buf := bytes.NewBufferString("")
-	w := NewWriter(buf)
-
-	err := marshalMap(w, m)
-	if err != nil {
-		return nil, err
-	}
-
-	w.Flush()
-	return buf.Bytes(), nil
-}
-
-func marshalMap(w *Writer, m map[string]interface{}) error {
-	for index, val := range m {
-		switch v := val.(type) {
-		case map[string]interface{}:
-			w.AddSection(index)
-			err := marshalMap(w, v)
-			if err != nil {
-				return err
-			}
-		case string:
-			w.AddElement(index, v)
-		default:
-			value, err := conv.String(val)
-			if err != nil {
-				return err
-			}
-			w.AddElement(index, value)
-		}
-	}
-	return nil
 }
