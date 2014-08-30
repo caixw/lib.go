@@ -112,22 +112,22 @@ func False(t *testing.T, expr bool, args ...interface{}) {
 
 // 断言表达式expr为nil，否则输出错误信息
 func Nil(t *testing.T, expr interface{}, args ...interface{}) {
-	assert(t, IsNil(expr), args, []interface{}{"Nil失败，实际值为[%T,%v]", expr, expr})
+	assert(t, IsNil(expr), args, []interface{}{"Nil失败，实际值为[%T:%v]", expr, expr})
 }
 
 // 断言表达式expr为非nil值，否则输出错误信息
 func NotNil(t *testing.T, expr interface{}, args ...interface{}) {
-	assert(t, !IsNil(expr), args, []interface{}{"NotNil失败，实际值为[%T,%v]", expr, expr})
+	assert(t, !IsNil(expr), args, []interface{}{"NotNil失败，实际值为[%T:%v]", expr, expr})
 }
 
 // 断言v1与v2两个值相等，否则输出错误信息
 func Equal(t *testing.T, v1, v2 interface{}, args ...interface{}) {
-	assert(t, IsEqual(v1, v2), args, []interface{}{"Equal失败，实际值为v1=[%T,%v];v2=[%T,%v]", v1, v1, v2, v2})
+	assert(t, IsEqual(v1, v2), args, []interface{}{"Equal失败，实际值为v1=[%T:%v];v2=[%T:%v]", v1, v1, v2, v2})
 }
 
 // 断言v1与v2两个值不相等，否则输出错误信息
 func NotEqual(t *testing.T, v1, v2 interface{}, args ...interface{}) {
-	assert(t, !IsEqual(v1, v2), args, []interface{}{"NotEqual失败，实际值为v1=[%T,%v];v2=[%T,%v]", v1, v1, v2, v2})
+	assert(t, !IsEqual(v1, v2), args, []interface{}{"NotEqual失败，实际值为v1=[%T:%v];v2=[%T:%v]", v1, v1, v2, v2})
 }
 
 // 断言expr的值为空(nil,"",0,false)，否则输出错误信息
