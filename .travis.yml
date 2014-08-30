@@ -1,5 +1,11 @@
 language: go
 go:
     - 1.3
+
+# 仅编译master分支
+branches:
+    only:
+        - master
+
 install:
     - mkdir ./session/stores/file/testdata/
