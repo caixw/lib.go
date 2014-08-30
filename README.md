@@ -23,3 +23,6 @@ web服务器的session管理包。
 
 #### encoding/version
 版本号的比较和解析。
+
+#### encoding/ini
+ini文件的解析。
