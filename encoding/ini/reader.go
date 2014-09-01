@@ -9,7 +9,9 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/caixw/lib.go/conv"
 	"io"
+	"reflect"
 	"strings"
 	"unicode"
 )
@@ -210,4 +212,99 @@ func UnmarshalMap(data []byte, section string) (map[string]interface{}, error) {
 		}
 	}
 	return m, nil
+}
+
+// 将data转换成struct
+func Unmarshal(data []byte, v interface{}) error {
+	return unmarshal(NewReaderBytes(data), v)
+}
+
+func unmarshal(r *Reader, curr reflect.Value, parent interface{}) error {
+	if curr.Kind() == reflect.Ptr {
+		curr = curr.Elem()
+	}
+
+	k := curr.Kind()
+
+	if k != reflect.Map && k != reflect.Struct {
+		return fmt.Errorf("无效的目标类型[%v]", k)
+	}
+
+	for {
+		token, err := r.Token()
+		if err != nil {
+			return err
+		}
+
+		switch token.Type {
+		case EOF:
+			return nil
+		case Element:
+			if k == reflect.Map {
+				if err := setMapElement(curr, token); err != nil {
+					return err
+				}
+			} else {
+				if err := setStructElement(curr, token); err != nil {
+					return err
+				}
+			}
+		case Section:
+			if parent == nil {
+				parent = curr.Interface()
+			}
+
+			// find section
+		}
+	}
+}
+
+var mapType = reflect.TypeOf(map[string]interface{}{})
+
+// 将一个token的元素保存到map中。
+//
+// 供unmarshal函数调用，需要确保v的类型为reflect.Map(指针都不行)，Token.Type为Element
+func setMapElement(v reflect.Value, token *Token) error {
+	if v.IsValid() {
+		return errors.New("无效的map值")
+	}
+
+	if !v.CanSet() {
+		return errors.New("无法使用指针的指针")
+	}
+
+	if v.IsNil() { // map是个nil，则给它初始化。
+		v = reflect.MakeMap(mapType)
+	}
+
+	v.SetMapIndex(reflect.ValueOf(token.Key), reflect.ValueOf(token.Value))
+
+	return nil
+}
+
+func setStructElement(v reflect.Value, token *Token) error {
+	if v.IsValid() {
+		return errors.New("无效的map值")
+	}
+
+	if !v.CanSet() {
+		return errors.New("无法使用指针的指针")
+	}
+
+	if v.IsNil() { // 若为nil，则给它初始化。
+		v = reflect.New(v.Type())
+	}
+
+	f := v.FieldByName(token.Key)
+	if !f.CanSet() {
+		return errors.New("无法设置值")
+	}
+
+	// todo conv.conv(...)
+	if f.Kind() == reflect.String {
+		f.SetString(token.Value)
+		return nil
+	}
+
+	return nil
 }
