@@ -56,6 +56,8 @@ func (host *HostMux) serveHTTP(w http.ResponseWriter, r *http.Request) bool {
 			continue
 		}
 
+		ctx := GetContext(r)
+		ctx.Add("domains", parseCaptures(entry.patternC, r.URL.Host))
 		entry.handler.ServeHTTP(w, r)
 		return true
 	}

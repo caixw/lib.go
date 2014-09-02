@@ -61,6 +61,7 @@ func (ctx *context) Add(key, val interface{}) (ok bool) {
 	return true
 }
 
+// TODO(caixw) context对象池，对象太小，性能并没有提升，是否需要使用该特性？
 var ctxFree = sync.Pool{
 	New: func() interface{} { return &context{items: make(map[interface{}]interface{})} },
 }

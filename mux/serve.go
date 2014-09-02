@@ -140,7 +140,7 @@ func (srv *ServeMux) serveHTTP(w http.ResponseWriter, r *http.Request) bool {
 		}
 
 		ctx := GetContext(r)
-		ctx.Add("params", parseParam(entry.patternC, r.URL.Path))
+		ctx.Add("params", parseCaptures(entry.patternC, r.URL.Path))
 		entry.handler.ServeHTTP(w, r)
 
 		freeContext(r) // 释放context的内容
