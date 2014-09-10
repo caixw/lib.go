@@ -6,6 +6,7 @@ package ini
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 )
 
@@ -64,6 +65,11 @@ func (w *Writer) AddElement(key, val string) *Writer {
 	return w.NewLine()
 }
 
+// 添加一个键值对。val使用fmt.Sprint格式化成字符串。
+func (w *Writer) AddElementf(key string, val interface{}) *Writer {
+	return w.AddElement(key, fmt.Sprint(val))
+}
+
 // 添加注释
 func (w *Writer) AddComment(comment string) *Writer {
 	w.buf.WriteByte(w.symbol)
@@ -75,4 +81,13 @@ func (w *Writer) AddComment(comment string) *Writer {
 // 将内容输出到io.Writer中
 func (w *Writer) Flush() {
 	w.buf.Flush()
+}
+
+func Marshal(v interface{}, w *Writer) error {
+	root, err := newRoot(v)
+	if err != nil {
+		return err
+	}
+
+	return root.marshal(w)
 }
