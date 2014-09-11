@@ -7,4 +7,4 @@
 // 提供了最基本的Reader和Writer两个操作类。
 package ini
 
-const Version = "0.1.0.140826"
+const Version = "0.1.5.140911"
