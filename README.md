@@ -26,3 +26,6 @@ web服务器的session管理包。
 
 #### encoding/ini
 ini文件的解析。
+
+#### encoding/tag
+对固定格式的struct tag的分析。
