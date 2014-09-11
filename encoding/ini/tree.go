@@ -73,10 +73,7 @@ type tree struct {
 // 向tree.nodes中添加元素。
 // originV v的原始值，比如originV可能是指针，而v绝对不会是指针。
 func (t *tree) addNode(field reflect.StructField, v, originV reflect.Value) error {
-	name := field.Name
-	if tmp, found := tag.Get(field.Tag.Get("ini"), "name"); found {
-		name = tmp[0]
-	}
+	name := tag.MustGet(field.Tag.Get("ini"), "name", field.Name)[0]
 
 	t.nodes[name] = make(map[string]*elem)
 	typ := v.Type()

@@ -42,6 +42,22 @@ func TestGet(t *testing.T) {
 	fn(tag, "name3", []string{"n1", "n2"})
 }
 
+func TestMustGet(t *testing.T) {
+	a := assert.New(t)
+
+	fn := func(tag, name string, def []string, wont []string) {
+		val := MustGet(tag, name, def...)
+		a.Equal(val, wont)
+	}
+
+	// name1不存在，测试默认值
+	fn(tag, "name1", []string{"def"}, []string{"def"})
+	// abc不存在，测试默认值
+	fn(tag, "abc", []string{"defg", "abc"}, []string{"defg", "abc"})
+	// name3存在，测试返回值
+	fn(tag, "name3", []string{"n3", "n4"}, []string{"n1", "n2"})
+}
+
 func TestHas(t *testing.T) {
 	a := assert.New(t)
 	a.True(Has(tag, "name"))

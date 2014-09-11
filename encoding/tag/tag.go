@@ -71,6 +71,15 @@ func Get(tag, name string) ([]string, bool) {
 	return nil, false
 }
 
+// 功能同Get()函数，但在无法找到的情况下，会返回defVal做为默认值。
+func MustGet(tag, name string, defVal ...string) []string {
+	if ret, found := Get(tag, name); found {
+		return ret
+	}
+
+	return defVal
+}
+
 // 查询指定名称的项是否存在，若只是查找是否存在该
 // 项，使用Has()会比Get()要快上许多。
 func Has(tag, name string) bool {
