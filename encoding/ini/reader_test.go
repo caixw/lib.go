@@ -97,34 +97,3 @@ func TestUnmarshalMap(t *testing.T) {
 	a.NotError(err)
 	a.Equal(m, v2)
 }
-
-func TestUnmarshal(t *testing.T) {
-	str := `
-    nosectionkey=nosectionval
-    [section1]
-    skey=sval
-    key =    val
-    ;comment1  
-    key2=val2
-    [section2]
-    key2=val2
-    `
-	a := assert.New(t)
-
-	type section struct {
-		Key2 string `ini:"name:key2";json:"abc"`
-	}
-
-	type s1 struct {
-		Key string `ini:"name:nosectionkey"`
-		//Section1 map[string]interface{} `ini:"Name:section1"`
-		Section2 *section `ini:"name:section2"`
-	}
-
-	sv := &s1{Section2: &section{}}
-	err := Unmarshal([]byte(str), sv)
-	a.NotError(err)
-	a.Equal(sv.Key, "nosectionval")
-	//a.Equal(sv.Section1["key"], "val")
-	a.Equal(sv.Section2.Key2, "val2")
-}

@@ -212,13 +212,12 @@ func UnmarshalMap(data []byte, section string) (map[string]interface{}, error) {
 	return m, nil
 }
 
-// 将data转换成struct
+// 将data中的数据写入v中。注释将被忽略。
 func Unmarshal(data []byte, v interface{}) error {
-	r := NewReaderBytes(data)
-	root, err := newRoot(v)
+	tree, err := scan(v)
 	if err != nil {
 		return err
 	}
 
-	return root.unmarshal(r)
+	return tree.unmarshal(NewReaderBytes(data))
 }

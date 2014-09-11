@@ -6,6 +6,7 @@ package ini
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 )
@@ -83,11 +84,19 @@ func (w *Writer) Flush() {
 	w.buf.Flush()
 }
 
-func Marshal(v interface{}, w *Writer) error {
-	root, err := newRoot(v)
+// 将v的内容以ini格式的形式输出。
+func Marshal(v interface{}) ([]byte, error) {
+	buf := bytes.NewBufferString("")
+	w := NewWriter(buf)
+	tree, err := scan(v)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return root.marshal(w)
+	if err = tree.marshal(w); err != nil {
+		return nil, err
+	}
+
+	w.Flush()
+	return buf.Bytes(), nil
 }
