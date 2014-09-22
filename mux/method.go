@@ -26,9 +26,9 @@ func NewMethod() *Method {
 	return &Method{entries: make(map[string]Matches)}
 }
 
-// Add 添加一条数据。
+// 添加一条数据。
 // methods参数应该只能为http.Request.Method中合法的字符串以及
-// 代码所有方法的"*"，其它任何字符串都将永远访问不了。
+// 代表所有方法的"*"，其它任何字符串都是无效的，但不会提示错误。
 func (m *Method) Add(h Matcher, methods ...string) *Method {
 	if len(methods) == 0 {
 		panic("请至少指定一个methods参数")

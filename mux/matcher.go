@@ -44,3 +44,23 @@ func (m HandlerFunc) ServeHTTP2(w http.ResponseWriter, r *http.Request) bool {
 func (m HandlerFunc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	m(w, r)
 }
+
+type matche struct {
+	h http.Handler
+}
+
+var _ Matcher = &matche{}
+
+func (m *matche) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	m.h.ServeHTTP(w, r)
+}
+
+func (m *matche) ServeHTTP2(w http.ResponseWriter, r *http.Request) bool {
+	m.h.ServeHTTP(w, r)
+	return true
+}
+
+// 将http.Handler转换成Matcher
+func Handler2Matcher(h http.Handler) *matche {
+	return &matche{h: h}
+}
