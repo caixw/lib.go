@@ -3,9 +3,6 @@ lib.go [![Build Status](https://travis-ci.org/caixw/lib.go.svg?branch=master)](h
 
 Go语言包的一个集合，包含各个方面，比较杂乱。
 
-每个包都提供了一个版本号(Version)表示包的兼容情况：若主版本发
-生变化，则表示不兼容；其它子版本号变化，表示一些小修改，但不会涉及到兼容性问题。
-
 #### assert
 常用的断言操作。对testing.T的一个简单封装。
 
@@ -29,3 +26,6 @@ ini文件的解析。
 
 #### encoding/tag
 对固定格式的struct tag的分析。
+
+#### mux
+对net/http.ServeMux的简单扩展，可以实现大部分路由功能。

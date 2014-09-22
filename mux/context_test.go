@@ -32,7 +32,7 @@ func TestContext(t *testing.T) {
 	a.Equal(ctx3.MustGet("key", "default").(string), "default")
 }
 
-func Benchmark1(b *testing.B) {
+func BenchmarkContextWithPool(b *testing.B) {
 	req, _ := http.NewRequest("GET", "/abc/", nil)
 	for i := 0; i < b.N; i++ {
 		ctx := GetContext(req)
@@ -41,8 +41,7 @@ func Benchmark1(b *testing.B) {
 	}
 }
 
-func Benchmark2(b *testing.B) {
-	//req, _ := http.NewRequest("GET", "/abc/", nil)
+func BenchmarkContextWithoutPool(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		ctx := &context{items: make(map[interface{}]interface{})}
 		ctx.Set("abc", "abc")

@@ -5,61 +5,48 @@
 package mux
 
 import (
-	"fmt"
 	"net/http"
 	"regexp"
-	"sync"
 )
 
-type hostEntry struct {
-	patternC *regexp.Regexp
-	handler  http.Handler
+// 用于匹配http.Request.Host的Handler
+//  m1 := mux.NewMethod().
+//            Get(h1).
+//            Post(h2)
+//  m2 := mux.NewMethod().
+//            Get(h3).
+//            Get(h4)
+//  h1 := mux.NewHost(m1, "api.example.com")
+//  h2 := mux.NewHost(m2, "www.example.com")
+//  http.ListenAndServe("8080", NewMatches(h1, h2))
+type Host struct {
+	h        Matcher
+	hostExpr *regexp.Regexp
 }
 
-// 域名路由器
-type HostMux struct {
-	sync.Mutex
-	entries map[string]*hostEntry
-}
+var _ Matcher = &Host{}
 
-// 添加域名路由
-//
-// 支持正则表达式
-func (host *HostMux) Handle(pattern string, handler http.Handler) {
-	host.Lock()
-	defer host.Unlock()
-
-	if _, found := host.entries[pattern]; found {
-		msg := fmt.Sprintf("域名路由器[%s]已经存在", pattern)
-		panic(msg)
+// host匹配域名的正则表达式。
+func NewHost(handler Matcher, host string) *Host {
+	expr, err := regexp.Compile(host)
+	if err != nil {
+		panic(err)
 	}
 
-	host.entries[pattern] = &hostEntry{
-		patternC: regexp.MustCompile(pattern),
-		handler:  handler,
-	}
+	return &Host{h: handler, hostExpr: expr}
 }
 
-// 添加域名路由
-func (host *HostMux) HandleFunc(pattern string, handle http.HandlerFunc) {
-	host.Handle(pattern, http.Handler(handle))
-}
-
-// implement http.Handler
-func (host *HostMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	host.serveHTTP(w, r)
-}
-
-func (host *HostMux) serveHTTP(w http.ResponseWriter, r *http.Request) bool {
-	for _, entry := range host.entries {
-		if !entry.patternC.MatchString(r.Host) {
-			continue
-		}
-
+func (h *Host) ServeHTTP2(w http.ResponseWriter, r *http.Request) bool {
+	if h.hostExpr.MatchString(r.Host) {
+		// 分析域名。
 		ctx := GetContext(r)
-		ctx.Add("domains", parseCaptures(entry.patternC, r.URL.Host))
-		entry.handler.ServeHTTP(w, r)
-		return true
+		ctx.Set("domains", parseCaptures(h.hostExpr, r.Host))
+		return h.h.ServeHTTP2(w, r)
 	}
+
 	return false
+}
+
+func (h *Host) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h.ServeHTTP2(w, r)
 }
