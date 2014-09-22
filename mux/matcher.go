@@ -8,7 +8,7 @@ import (
 	"net/http"
 )
 
-// Matcher相对于http.Handler多了一个ServeHTTP2()函数，用以调整
+// Matcher相对于http.Handler多了一个ServeHTTP2()函数，用以弥补
 // http.Handler一些功能上的不足。
 type Matcher interface {
 	http.Handler
@@ -31,8 +31,8 @@ func (m MatcherFunc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	m(w, r)
 }
 
-// HandlerFunc用于将一个符合http.HandlerFunc声明格式的函数转换成
-// Matcher对象。
+// HandlerFunc用于将一个符合http.HandlerFunc声明格式的函数转换成Matcher对象。
+// 该类型的对象，Matcher.ServeHTTP2()接口的返回值永远都是true。
 type HandlerFunc func(w http.ResponseWriter, r *http.Request)
 
 // 返回值永远为true
@@ -45,6 +45,7 @@ func (m HandlerFunc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	m(w, r)
 }
 
+// 用于将一个http.Handler对象转换成Matcher对象。
 type matche struct {
 	h http.Handler
 }
@@ -61,6 +62,7 @@ func (m *matche) ServeHTTP2(w http.ResponseWriter, r *http.Request) bool {
 }
 
 // 将http.Handler转换成Matcher
+// 该类型的对象，Matcher.ServeHTTP2()接口的返回值永远都是true。
 func Handler2Matcher(h http.Handler) *matche {
 	return &matche{h: h}
 }
