@@ -28,12 +28,10 @@ var _ Matcher = &Host{}
 
 // host参数为匹配的域名，可以是正则表达式。
 func NewHost(handler Matcher, host string) *Host {
-	expr, err := regexp.Compile(host)
-	if err != nil {
-		panic(err)
+	return &Host{
+		h:        handler,
+		hostExpr: regexp.MustCompile(host),
 	}
-
-	return &Host{h: handler, hostExpr: expr}
 }
 
 func (h *Host) ServeHTTP2(w http.ResponseWriter, r *http.Request) bool {

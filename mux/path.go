@@ -20,12 +20,10 @@ var _ Matcher = &Path{}
 // NewPath新建一个Path实例。
 // pattern用于匹配http.Request.URL.Path的正则表达式，可以用命名表达式。
 func NewPath(matcher Matcher, pattern string) *Path {
-	expr, err := regexp.Compile(pattern)
-	if err != nil {
-		panic(err)
+	return &Path{
+		m:        matcher,
+		pathExpr: regexp.MustCompile(pattern),
 	}
-
-	return &Path{m: matcher, pathExpr: expr}
 }
 
 func (p *Path) ServeHTTP2(w http.ResponseWriter, r *http.Request) bool {
