@@ -6,6 +6,8 @@ package ini
 
 import (
 	"bufio"
+	"bytes"
+	"fmt"
 	"io"
 )
 
@@ -64,6 +66,11 @@ func (w *Writer) AddElement(key, val string) *Writer {
 	return w.NewLine()
 }
 
+// 添加一个键值对。val使用fmt.Sprint格式化成字符串。
+func (w *Writer) AddElementf(key string, val interface{}) *Writer {
+	return w.AddElement(key, fmt.Sprint(val))
+}
+
 // 添加注释
 func (w *Writer) AddComment(comment string) *Writer {
 	w.buf.WriteByte(w.symbol)
@@ -75,4 +82,21 @@ func (w *Writer) AddComment(comment string) *Writer {
 // 将内容输出到io.Writer中
 func (w *Writer) Flush() {
 	w.buf.Flush()
+}
+
+// 将v的内容以ini格式的形式输出。
+func Marshal(v interface{}) ([]byte, error) {
+	buf := bytes.NewBufferString("")
+	w := NewWriter(buf)
+	tree, err := scan(v)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = tree.marshal(w); err != nil {
+		return nil, err
+	}
+
+	w.Flush()
+	return buf.Bytes(), nil
 }

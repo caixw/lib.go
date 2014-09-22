@@ -4,8 +4,8 @@ go:
 
 # 仅编译master分支
 branches:
-    only:
-        - master
+  only:
+    - master
 
 install:
     - mkdir ./session/stores/file/testdata/
