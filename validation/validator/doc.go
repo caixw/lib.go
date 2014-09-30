@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
-// validation 数据验证。
-package validation
+// 一些常用的验证函数
+package validator
 
-const Version = "0.1.3.140929"
+const Version = "0.1.0.140928"

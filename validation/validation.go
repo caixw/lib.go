@@ -4,29 +4,74 @@
 
 package validation
 
+import (
+	"fmt"
+)
+
+// 验证函数返回的结果。相对于直接返回bool，该结构提供了
+// 相应的key和message，适合有针对性的自定义验证函数。
+type Result struct {
+	Message, Key string
+	Ok           bool
+}
+
+// 修改Key的值
+func (r *Result) SetKey(key string) *Result {
+	r.Key = key
+
+	return r
+}
+
+// 修改Message的值。
+func (r *Result) SetMessage(msg string, args ...interface{}) *Result {
+	if len(args) == 0 {
+		r.Message = msg
+	} else {
+		r.Message = fmt.Sprintf(msg, args...)
+	}
+
+	return r
+}
+
+// Validation相当于一个错误容器，存放从Apply()获取的错误信息。
 type Validation struct {
-	errs map[string]*errors
+	errs    []string
+	errsMap map[string]string
+}
+
+func New() *Validation {
+	return &Validation{}
+}
+
+// 从一个Result对象中判断是否存在错误，有则保存之。
+func (v *Validation) ApplyResult(r *Result) *Validation {
+	return v.Apply(r.Ok, r.Message, r.Key)
+}
+
+// 判断expr的值，若是false，则保存msg和key到Validation对象中。
+// 若不需要key则传递空字符串。
+func (v *Validation) Apply(expr bool, msg, key string) *Validation {
+	if expr {
+		return v
+	}
+
+	v.errs = append(v.errs, msg)
+
+	if len(key) > 0 {
+		v.errsMap[key] = msg
+	}
+
+	return v
 }
 
 func (v *Validation) HasErrors() bool {
 	return len(v.errs) > 0
 }
 
-func (v *Validation) GetErrors() map[string]*errors {
+func (v *Validation) GetErrors() []string {
 	return v.errs
 }
 
-//
-func (v *Validation) Apply(expr bool, msg, id string) *Validation {
-	if expr {
-		return v
-	}
-
-	if errs, found := v.errs[id]; found {
-		errs.add(msg)
-	} else {
-		v.errs[id] = newErrors(msg)
-	}
-
-	return v
+func (v *Validation) GetErrorsMap() map[string]string {
+	return v.errsMap
 }
