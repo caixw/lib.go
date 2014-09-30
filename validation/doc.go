@@ -3,6 +3,8 @@
 // license that can be found in the LICENSE file.
 
 // validation 数据验证。
+//  v := validation.New()
+//  v.Apply(validator.IsNumber("123", "必须为数值", "num"))
 package validation
 
-const Version = "0.1.3.140929"
+const Version = "0.1.4.140930"

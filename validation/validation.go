@@ -40,7 +40,7 @@ type Validation struct {
 }
 
 func New() *Validation {
-	return &Validation{}
+	return &Validation{errsMap: make(map[string]string)}
 }
 
 // 从一个Result对象中判断是否存在错误，有则保存之。
@@ -49,7 +49,8 @@ func (v *Validation) ApplyResult(r *Result) *Validation {
 }
 
 // 判断expr的值，若是false，则保存msg和key到Validation对象中。
-// 若不需要key则传递空字符串。
+// 若不需要key则传递空字符串。同一key若提供了多条msg，则只有最
+// 后一条会被保存。
 func (v *Validation) Apply(expr bool, msg, key string) *Validation {
 	if expr {
 		return v
@@ -74,4 +75,10 @@ func (v *Validation) GetErrors() []string {
 
 func (v *Validation) GetErrorsMap() map[string]string {
 	return v.errsMap
+}
+
+// 清除所有的错误信息
+func (v *Validation) Clear() {
+	v.errs = v.errs[:0]
+	v.errsMap = make(map[string]string)
 }
