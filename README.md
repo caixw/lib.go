@@ -29,3 +29,9 @@ ini文件的解析。
 
 #### mux
 对net/http.ServeMux的简单扩展，可以实现大部分路由功能。
+
+#### validation
+验证工具。
+
+#### validation/validator
+一些常用的验证函数。
