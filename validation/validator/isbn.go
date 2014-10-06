@@ -10,8 +10,7 @@ import (
 
 // 有关ISBN的算法及其它相关内容，可参照http://zh.wikipedia.org/wiki/%E5%9B%BD%E9%99%85%E6%A0%87%E5%87%86%E4%B9%A6%E5%8F%B7
 
-// 判断是否为合法的ISBN串号
-// 可以同时判断ISBN10和ISBN13
+// 判断是否为合法的ISBN串号。可以同时判断ISBN10和ISBN13
 func IsISBN(val interface{}) bool {
 	var result []byte
 
@@ -56,6 +55,7 @@ func IsISBN13(val []byte) bool {
 	return isISBN13(eraseMinus(val))
 }
 
+// isbn10的校验位对应的值。
 var isbn10Map = []byte{'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'x', '0'}
 
 func isISBN10(val []byte) bool {
@@ -84,7 +84,7 @@ func isISBN13(val []byte) bool {
 	return (10 - sum%10) == int(val[12]-'0')
 }
 
-// 过滤-符号
+// 过滤减号(-)符号
 func eraseMinus(val []byte) []byte {
 	offset := 0
 	for k, v := range val {
