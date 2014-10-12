@@ -10,10 +10,7 @@ import (
 )
 
 func TestWriter(t *testing.T) {
-
 	w := NewWriter(os.Stdout)
-
-	w.Erase(2)
 
 	for i := 0; i < 256; i += 10 {
 		w.Color256(i, 255-i)

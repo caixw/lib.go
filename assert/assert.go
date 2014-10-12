@@ -175,3 +175,15 @@ func FileNotExists(t *testing.T, path string, args ...interface{}) {
 	_, err := os.Stat(path)
 	assert(t, os.IsNotExist(err), args, []interface{}{"FileExists发生以下错误：%v", err.Error()})
 }
+
+// 断言函数会发生panic，否则输出错误信息。
+func Panic(t *testing.T, fn func(), args ...interface{}) {
+	has, _ := HasPanic(fn)
+	assert(t, has, args, []interface{}{"并未发生panic"})
+}
+
+// 断言函数会发生panic，否则输出错误信息。
+func NotPanic(t *testing.T, fn func(), args ...interface{}) {
+	has, msg := HasPanic(fn)
+	assert(t, !has, args, []interface{}{"发生了panic，其信息为[%]", msg})
+}

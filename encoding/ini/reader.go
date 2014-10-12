@@ -14,6 +14,7 @@ import (
 	"unicode"
 )
 
+// 表示ini的语法错误信息
 type SyntaxError struct {
 	Line int
 	Msg  string

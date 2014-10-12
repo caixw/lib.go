@@ -69,3 +69,11 @@ func (a *Assertion) FileExists(path string, msg ...interface{}) {
 func (a *Assertion) FileNotExists(path string, msg ...interface{}) {
 	FileNotExists(a.t, path, msg...)
 }
+
+func (a *Assertion) Panic(fn func(), msg ...interface{}) {
+	Panic(a.t, fn, msg...)
+}
+
+func (a *Assertion) NotPanic(fn func(), msg ...interface{}) {
+	NotPanic(a.t, fn, msg...)
+}
