@@ -121,46 +121,17 @@ func TestFileNotExists(t *testing.T) {
 	FileNotExists(t, "c:/win", "FileNotExists() falid")
 }
 
-func TestIsEqual(t *testing.T) {
-	if IsEqual("5", 5) {
-		t.Error(`IsEqual("5"==5)`)
+func TestPanic(t *testing.T) {
+	f1 := func() {
+		panic("panic")
 	}
 
-	if !IsEqual(5, 5.0) {
-		t.Error(`IsEqual(5!=5.0)`)
-	}
+	Panic(t, f1)
 }
 
-func TestIsEmpty(t *testing.T) {
-	if !IsEmpty([]int{}) {
-		t.Error("IsEmpty([]int{})")
+func TestNotPanic(t *testing.T) {
+	f1 := func() {
 	}
 
-	if !IsEmpty(map[string]int{}) {
-		t.Error("IsEmpty(map[string]int{})")
-	}
-
-	if !IsEmpty(0) {
-		t.Error("IsEmpty(0)")
-	}
-
-	if !IsEmpty("") {
-		t.Error("IsEmpty(``)")
-	}
-}
-
-func TestIsNil(t *testing.T) {
-	if !IsNil(nil) {
-		t.Error("IsNil(nil)")
-	}
-
-	var v1 []int
-	if !IsNil(v1) {
-		t.Error("IsNil(v1)")
-	}
-
-	var v2 map[string]string
-	if !IsNil(v2) {
-		t.Error("IsNil(v2)")
-	}
+	NotPanic(t, f1)
 }
