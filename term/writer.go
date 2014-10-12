@@ -13,10 +13,12 @@ import (
 //
 //  a := NewWriter(os.Stdout)
 //  a.Left(5).ClearLine(2).SGR(term.SGRFRed,term.SGRBGreen).Print("abc")
-//  fmt.Fprintf(a,
+//  fmt.Fprintf(a, "%v", term.SGRFBBlue)
 type AnsiWriter struct {
 	w io.Writer
 }
+
+var _ io.Writer = &AnsiWriter{}
 
 func NewWriter(w io.Writer) *AnsiWriter {
 	return &AnsiWriter{w: w}
@@ -27,13 +29,16 @@ func (a *AnsiWriter) Write(b []byte) (int, error) {
 	return a.w.Write(b)
 }
 
-var _ io.Writer = &AnsiWriter{}
+func (a *AnsiWriter) WriteString(str string) (int, error) {
+	return a.Write([]byte(str))
+}
 
 // 向io.Writer写入ansi控制器
-func (a *AnsiWriter) WriteAnsi(code ansi) *AnsiWriter {
-	if _, err := fmt.Fprintf(a.w, "%m", code); err != nil {
+func (a *AnsiWriter) WriteAnsi(code string) *AnsiWriter {
+	if _, err := a.w.Write([]byte(code)); err != nil {
 		panic(err)
 	}
+
 	return a
 }
 
