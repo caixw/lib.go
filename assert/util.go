@@ -127,3 +127,16 @@ func IsEqual(v1, v2 interface{}) bool {
 
 	return false
 }
+
+// 判断fn函数是否会发生panic
+// 若发生了panic，将把msg一起返回。
+func HasPanic(fn func()) (has bool, msg interface{}) {
+	defer func() {
+		if msg = recover(); msg != nil {
+			has = true
+		}
+	}()
+	fn()
+
+	return
+}
