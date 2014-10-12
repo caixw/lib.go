@@ -38,10 +38,13 @@ const (
 	SGRBDefault = "49" // 默认背景色
 )
 
-// 将几个SGR控制符合成一个ansi对象
-func SGR(args ...string) ansi {
+// 将几个SGR控制符合成一个ansi控制符
+//  "30", "31", "32"
+//  // 以上参数将会被转换成以下内容返回
+//  "\033[30;31;32m"
+func SGR(args ...string) string {
 	if len(args) == 0 {
-		return ansi(SGRReset + "m")
+		return "\033[" + SGRReset + "m"
 	}
 
 	ret := ""
@@ -49,5 +52,5 @@ func SGR(args ...string) ansi {
 		ret += v + ";"
 	}
 
-	return ansi(ret[0:len(ret)-1] + "m")
+	return "\033[" + ret[0:len(ret)-1] + "m"
 }
