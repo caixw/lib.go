@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func TestAssertObj(t *testing.T) {
+func TestAssertion(t *testing.T) {
 	a := New(t)
 
 	if t != a.T() {
@@ -30,31 +30,30 @@ func TestAssertObj(t *testing.T) {
 	a.Equal(4, 4, "a.Equal(4,4) falid")
 	a.Equal(v1, v2, "a.Equal(v1,v2) falid")
 
-	a.NotEqual(4, 5, "a.NotEqual(4,5) falid")
-	a.NotEqual(v1, v3, "a.NotEqual(v1,v3) falid")
-	a.NotEqual(v3, v4, "a.NotEqual(v3,v4) falid")
+	a.NotEqual(4, 5, "a.NotEqual(4,5) falid").
+		NotEqual(v1, v3, "a.NotEqual(v1,v3) falid").
+		NotEqual(v3, v4, "a.NotEqual(v3,v4) falid")
 
 	var v5 interface{}
 	v6 := 0
 	v7 := []int{}
 
-	a.Empty(v5, "a.Empty falid")
-	a.Empty(v6, "a.Empty(0) falid")
-	a.Empty(v7, "a.Empty(v7) falid")
+	a.Empty(v5, "a.Empty falid").
+		Empty(v6, "a.Empty(0) falid").
+		Empty(v7, "a.Empty(v7) falid")
 
 	a.NotEmpty(1, "a.NotEmpty(1) falid")
 
 	a.Nil(v5)
 
-	a.NotNil(v7, "a.Nil(v7) falid")
-	a.NotNil(v6, "a.NotNil(v6) falid")
+	a.NotNil(v7, "a.Nil(v7) falid").
+		NotNil(v6, "a.NotNil(v6) falid")
 
 	v9 := errors.New("test")
 	a.Error(v9, "a.Error(v9) falid")
 
 	a.NotError("abc", "a.NotError falid")
 
-	a.FileExists("./assert.go", "a.FileExists(c:/windows) falid")
-
-	a.FileNotExists("c:/win", "a.FileNotExists(c:/win) falid")
+	a.FileExists("./assert.go", "a.FileExists(c:/windows) falid").
+		FileNotExists("c:/win", "a.FileNotExists(c:/win) falid")
 }

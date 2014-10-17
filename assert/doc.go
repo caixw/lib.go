@@ -20,8 +20,11 @@
 //      a.Equal(5, v, "v的值[%v]不等于5", v)
 //      a.Nil(v)
 //      a.T().Log("success")
+//
+//      // 以函数链的形式调用Assertion对象的方法
+//      a.True(false).Equal(5,6)
 //  }
 package assert
 
 // 当前库的版本号
-const Version = "1.4.8.141012"
+const Version = "1.4.9.141017"
