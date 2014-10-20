@@ -5,29 +5,30 @@
 package conv
 
 import (
-	"github.com/caixw/lib.go/assert"
 	"strings"
 	"testing"
+
+	"github.com/caixw/lib.go/assert"
 )
 
-type a struct {
+type a1 struct {
 	Id   int
 	Name string
 }
 
-type b struct {
-	a
+type b1 struct {
+	a1
 	Password string
 }
 
-type c struct {
-	sub      *a
-	Sub      *b
+type c1 struct {
+	sub      *a1
+	Sub      *b1
 	Password string
 }
 
 type C struct {
-	SUB      *b
+	SUB      *b1
 	PASSWORD string
 }
 
@@ -45,7 +46,7 @@ func TestMap2Obj(t *testing.T) {
 	}
 
 	// 包含匿名元素
-	obja := &a{}
+	obja := &a1{}
 	err := Map2Obj(m, obja, nil)
 	as.Nil(err)
 	as.Equal(obja.Id, 5)
@@ -57,7 +58,7 @@ func TestMap2Obj(t *testing.T) {
 		"Password": "password",
 		"lower":    "lower",
 	}
-	objb := &b{}
+	objb := &b1{}
 	err = Map2Obj(m, objb, nil)
 	as.Nil(err)
 	as.Equal(objb.Id, 5)
@@ -65,7 +66,7 @@ func TestMap2Obj(t *testing.T) {
 	as.Equal(objb.Password, "password")
 
 	// 包含子元素
-	objc := &c{Sub: &b{}}
+	objc := &c1{Sub: &b1{}}
 	m = map[string]interface{}{
 		"Password": "password",
 		"Sub": map[string]interface{}{
@@ -81,7 +82,7 @@ func TestMap2Obj(t *testing.T) {
 	as.Equal(objc.Sub.Password, "sub-password")
 
 	// 带转换函数
-	objC := &C{SUB: &b{}}
+	objC := &C{SUB: &b1{}}
 	err = Map2Obj(m, objC, ToUpperFieldConv)
 	as.Nil(err)
 	as.Equal(objC.PASSWORD, "password")
@@ -92,14 +93,14 @@ func TestObj2Map(t *testing.T) {
 	as := assert.New(t)
 
 	// 普通
-	obja := &a{6, "admin"}
+	obja := &a1{6, "admin"}
 	m, err := Obj2Map(obja, nil)
 	as.Nil(err)
 	as.Equal(m["Id"], 6)
 	as.Equal(m["Name"], "admin")
 
 	// 包含匿名字段
-	objb := &b{a{6, "admin"}, "password"}
+	objb := &b1{a1{6, "admin"}, "password"}
 	m, err = Obj2Map(objb, nil)
 	as.Nil(err)
 	as.Equal(m["Id"], 6)
@@ -107,7 +108,7 @@ func TestObj2Map(t *testing.T) {
 	as.Equal(m["Password"], "password")
 
 	// 包含子元素
-	objc := &c{sub: &a{6, "admin"}, Sub: &b{a{5, "test"}, "b-password"}, Password: "password"}
+	objc := &c1{sub: &a1{6, "admin"}, Sub: &b1{a1{5, "test"}, "b-password"}, Password: "password"}
 	m, err = Obj2Map(objc, nil)
 	as.Nil(err)
 	as.Equal(m["Password"], "password")
