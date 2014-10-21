@@ -27,3 +27,4 @@ _testmain.go
 
 # 项目中产生的垃圾文件
 session/stores/file/testdata/*
+logs/writer/testdata/*

@@ -35,3 +35,9 @@ ini文件的解析。
 
 #### validation/validator
 一些常用的验证函数。
+
+#### logs
+一个默认的日志系统
+
+#### logs/writer
+供日志系统使用的几个io.Writer
