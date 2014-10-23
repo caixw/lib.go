@@ -26,4 +26,7 @@ _testmain.go
 *.swp
 
 # 项目中产生的垃圾文件
-session/stores/file/testdata/*
+#session/stores/file/testdata/*
+#logs/writer/testdata/*
+# 包含在testdata的文件都当作临时文件。
+**/testdata/*
