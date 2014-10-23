@@ -9,21 +9,23 @@ import (
 	"io"
 )
 
+// Buffer 实现对输出内容的缓存，只有输出数量达到指定的值
+// 才会真正地向指定的io.Writer输出。
 type Buffer struct {
 	size   int       // 最大的缓存数量
-	buffer [][]byte  // 缓存的消息
-	w      io.Writer // 输出的writer
+	buffer [][]byte  // 缓存的内容
+	w      io.Writer // 输出的io.Writer
 }
 
 var _ WriteFlushAdder = &Buffer{}
 
-// 新建一个Buffer
-// 当size小于1时，相当于其值为1
+// 新建一个Buffer。
+// w最终输出的方向；当size<=1时，所有的内容都不会缓存，直接向w输出。
 func NewBuffer(w io.Writer, size int) *Buffer {
 	return &Buffer{size: size, w: w, buffer: make([][]byte, 0, size)}
 }
 
-// WriterContainer.AddWriter
+// WriterContainer.Add
 func (b *Buffer) Add(w io.Writer) error {
 	if b.w == nil {
 		b.w = w
@@ -60,7 +62,7 @@ func (b *Buffer) Write(bs []byte) (int, error) {
 	return b.Flush()
 }
 
-// 分发所有的内容。
+// Flusher.Flush
 func (b *Buffer) Flush() (size int, err error) {
 	if b.w == nil {
 		return 0, errors.New("并未指定输出环境，b.w指向空值")

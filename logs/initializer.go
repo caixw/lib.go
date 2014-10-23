@@ -13,10 +13,12 @@ import (
 
 	"github.com/caixw/lib.go/conv"
 	"github.com/caixw/lib.go/logs/writer"
+	"github.com/caixw/lib.go/term"
 )
 
 // writer的初始化函数。
-type WriterInitializer func(map[string]string) (io.Writer, error)
+// args参数为对应的xml节点的属性列表。
+type WriterInitializer func(args map[string]string) (io.Writer, error)
 
 // 注册的writer，所有注册的writer，都可以通过配置文件配置。
 var regInitializer = map[string]WriterInitializer{}
@@ -100,7 +102,7 @@ var consoleOutputMap = map[string]io.Writer{
 func consoleInitializer(args map[string]string) (io.Writer, error) {
 	outputIndex, found := args["output"]
 	if !found {
-		return nil, argNotFoundErr("console", "output")
+		outputIndex = "os.stderr"
 	}
 
 	output, found := consoleOutputMap[outputIndex]
@@ -110,7 +112,7 @@ func consoleInitializer(args map[string]string) (io.Writer, error) {
 
 	color, found := args["color"]
 	if !found {
-		return nil, argNotFoundErr("console", "color")
+		color = term.FRed
 	}
 
 	if color[0] != '\033' && color[len(color)-1] != 'm' {

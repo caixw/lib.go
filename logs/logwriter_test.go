@@ -50,9 +50,9 @@ func TestLogWriter(t *testing.T) {
 	err = lw.Add(&logWriterTestWriter2{})
 	a.NotError(err)
 
-	log := lw.toLogger()
-	a.NotNil(log)
-	log.Print("hello world")
+	lw.initLogger()
+	a.NotNil(lw.log)
+	lw.log.Print("hello world")
 
 	a.True(len(logWriterTestWriter1Content) > 0)
 	a.Equal(logWriterTestWriter1Content, logWriterTestWriter2Content)
