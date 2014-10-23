@@ -31,6 +31,10 @@ func InitFromXml(r io.Reader) (err error) {
 	return nil
 }
 
+func Flush() (int, error) {
+	return std.Flush()
+}
+
 // 将指定的level的日志转换成log.Logger实例
 // 需要先调用Init(...)函数进行初始化。
 func ToStdLogger(level int) (log *log.Logger, ok bool) {

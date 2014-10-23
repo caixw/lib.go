@@ -70,15 +70,17 @@ func (l *LevelLogger) Write(bs []byte) (int, error) {
 
 // w只能是logWriter实例的，否则会返回错误信息。
 func (l *LevelLogger) Add(w io.Writer) error {
-	log, ok := w.(*logWriter)
+	lw, ok := w.(*logWriter)
 	if !ok {
 		return fmt.Errorf("必须为logWriter接口")
 	}
 
-	l.logs[log.level] = log
+	lw.initLogger()
+	l.logs[lw.level] = lw
 	return nil
 }
 
+// writer.FlushAdder.Flush()
 func (l *LevelLogger) Flush() (size int, err error) {
 	for _, w := range l.logs {
 		size, err = w.Flush()

@@ -5,6 +5,7 @@
 package logs
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -13,10 +14,13 @@ import (
 	"github.com/caixw/lib.go/logs/writer"
 )
 
-// log.Logger并未提供更换output的功能，为了达到config实例中，所有配置
-// 节点都是一个io.Writer的功能，logWriter的作用就是将一个log.Logger伪
-// 装io.Writer，但未真正实现Write()方法，因为最终在LevelLogger中使用的
-// 还是log的实例。
+// 这是对log.Logger的一个包装，将其包装成io.Writer和writer.FlushAdder
+// 接口。
+//
+// log.Logger并未提供更换output的功能，为了达到writer.FlushAdder.Add()
+// 函数的功能，只能将所有的log.New()函数缓存起来，直到调用initLogger()
+// 时才正直初始log.Logger()实例。但是之后就不能再调用Add()方法添加新的
+// io.Writer实例了。
 type logWriter struct {
 	level  int
 	prefix string
@@ -28,29 +32,35 @@ type logWriter struct {
 var _ writer.FlushAdder = &logWriter{}
 var _ io.Writer = &logWriter{}
 
+// io.Writer.Write()
 func (l *logWriter) Write(bs []byte) (int, error) {
 	panic("该函数并未真正实现，仅为支持接口而设")
 	return 0, nil
 }
 
-// writer.Adder.Add()
+// writer.FlushAdder.Add()
 func (l *logWriter) Add(w io.Writer) error {
+	if l.log != nil {
+		return errors.New("已经初始化成logger，不能再添加新的io.Writer实例")
+	}
+
 	l.c.Add(w)
 	return nil
 }
 
+// writer.FlushAdder.Flush()
 func (l *logWriter) Flush() (int, error) {
 	return l.c.Flush()
 }
 
-// toLogger将当前类转换成log.Logger实例。
-func (l *logWriter) toLogger() *log.Logger {
+// initLogger 根据当前情况生成log.Logger实例。
+// 当多次调用，将触发panic。
+func (l *logWriter) initLogger() {
 	if l.log != nil {
 		panic("log.Logger已经生成")
 	}
 
 	l.log = log.New(l.c, l.prefix, l.flag)
-	return l.log
 }
 
 var flagMap = map[string]int{
@@ -64,7 +74,7 @@ var flagMap = map[string]int{
 
 func logWriterInitializer(level int, args map[string]string) (io.Writer, error) {
 	flagStr, found := args["flag"]
-	if !found {
+	if !found || (flagStr == "") {
 		flagStr = "log.lstdflags"
 	}
 
@@ -73,7 +83,7 @@ func logWriterInitializer(level int, args map[string]string) (io.Writer, error) 
 		return nil, fmt.Errorf("未知的Flag参数:[%v]", flagStr)
 	}
 
-	prefix, found := args["prefix"]
+	prefix, _ := args["prefix"]
 
 	return &logWriter{
 		level:  level,
