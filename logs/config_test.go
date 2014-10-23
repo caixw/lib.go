@@ -40,15 +40,15 @@ func TestLoadFromXml(t *testing.T) {
 
 	cfg, err := loadFromXml(r)
 	a.NotError(err).NotNil(cfg)
-	a.Equal(2, len(cfg.Items)) // info debug
+	a.Equal(2, len(cfg.items)) // info debug
 
-	info, found := cfg.Items["info"]
-	a.True(found).NotNil(info).Equal(info.Name, "info")
-	a.Equal(2, len(info.Items)) // buffer,console
+	info, found := cfg.items["info"]
+	a.True(found).NotNil(info).Equal(info.name, "info")
+	a.Equal(2, len(info.items)) // buffer,console
 
-	buf, found := info.Items["buffer"]
+	buf, found := info.items["buffer"]
 	a.True(found).NotNil(buf)
-	a.Equal(buf.Attrs["size"], "5")
+	a.Equal(buf.attrs["size"], "5")
 }
 
 // test config.toWriter
@@ -78,7 +78,7 @@ var xmlCfg = `
 </logs>
 `
 
-func TestConfigToWriter(t *testing.T) {
+func TestconfigToWriter(t *testing.T) {
 	a := assert.New(t)
 	clearInitializer()
 

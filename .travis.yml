@@ -4,3 +4,4 @@ go:
 
 install:
     - mkdir ./session/stores/file/testdata/
+    - mkdir ./logs/writer/testdata/
