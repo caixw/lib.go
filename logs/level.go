@@ -5,9 +5,11 @@
 package logs
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
+	"os"
 
 	"github.com/caixw/lib.go/logs/writer"
 )
@@ -21,41 +23,90 @@ const (
 	LevelCritical
 )
 
+// 一个分级的日志系统
 type LevelLogger struct {
-	logs map[int]*log.Logger
+	logs map[int]*logWriter
 }
 
-var _ writer.WriterContainer = &LevelLogger{}
+var _ writer.FlushAdder = &LevelLogger{}
+var _ io.Writer = &LevelLogger{}
+
+// 从一个xml配置文件初始一个LevelLogger实例
+func NewFromFile(file string) (*LevelLogger, error) {
+	f, err := os.Open(file)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	return NewFromXml(f)
+}
+
+// 从一个xml初始化LevelLogger
+func NewFromXml(r io.Reader) (*LevelLogger, error) {
+	cfg, err := loadFromXml(r)
+	if err != nil {
+		return nil, err
+	}
+
+	w, err := cfg.toWriter()
+	if err != nil {
+		return nil, err
+	}
+
+	log, ok := w.(*LevelLogger)
+	if !ok {
+		return nil, errors.New("无法转换成*LevelLogger")
+	}
+
+	return log, nil
+}
 
 // 仅为实现接口，不作任何输出
 func (l *LevelLogger) Write(bs []byte) (int, error) {
+	panic("该接口没有具体实现，请使用Println()实现相同的功能")
 	return 0, nil
 }
 
-func (l *LevelLogger) AddWriter(w io.Writer) error {
+// w只能是logWriter实例的，否则会返回错误信息。
+func (l *LevelLogger) Add(w io.Writer) error {
 	log, ok := w.(*logWriter)
 	if !ok {
 		return fmt.Errorf("必须为logWriter接口")
 	}
 
-	l.logs[log.level] = log.toLogger()
+	l.logs[log.level] = log
 	return nil
 }
 
-func (l *LevelLogger) ToStdLogger(level int) (log *log.Logger, ok bool) {
-	log, ok = l.logs[level]
+func (l *LevelLogger) Flush() (size int, err error) {
+	for _, w := range l.logs {
+		size, err = w.Flush()
+	}
 	return
 }
 
+// 将指定的level的日志转换成log.Logger实例
+func (l *LevelLogger) ToStdLogger(level int) (*log.Logger, bool) {
+	w, ok := l.logs[level]
+	if !ok {
+		return nil, false
+	}
+
+	return w.log, true
+}
+
+// 向指定level的日志输出一行信息
 func (l *LevelLogger) Println(level int, v ...interface{}) {
-	if log, found := l.logs[level]; found {
-		log.Println(v...)
+	if w, found := l.logs[level]; found {
+		w.log.Println(v...)
 	}
 }
 
+// 向指定level的日志输出一条信息
 func (l *LevelLogger) Printf(level int, format string, v ...interface{}) {
-	if log, found := l.logs[level]; found {
-		log.Printf(format, v...)
+	if w, found := l.logs[level]; found {
+		w.log.Printf(format, v...)
 	}
 }
 
@@ -117,4 +168,14 @@ func (l *LevelLogger) Critical(v ...interface{}) {
 // Criticalf根目录于LevelLogger.Printf(format, v...)的简写方式
 func (l *LevelLogger) Criticalf(format string, v ...interface{}) {
 	l.Printf(LevelCritical, format, v...)
+}
+
+func init() {
+	fn := func(args map[string]string) (io.Writer, error) {
+		return &LevelLogger{logs: make(map[int]*logWriter)}, nil
+	}
+
+	if !Register("logs", fn) {
+		panic("无法注册logs初始化函数")
+	}
 }

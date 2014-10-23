@@ -23,7 +23,7 @@ var _ io.Writer = &Console{}
 //
 // color ansi的颜色控制符，有关颜色定义字符串在term包中已经定义。
 // w 控制台实例，只能是os.Stderr,osStdout，其它将不会显示颜色。
-func NewConsole(color string, w io.Writer) *Console {
+func NewConsole(w io.Writer, color string) *Console {
 	return &Console{
 		color: color,
 		w:     w,

@@ -19,10 +19,13 @@ func TestBuffer(t *testing.T) {
 	b2 := bytes.NewBufferString("")
 	a.NotNil(b1).NotNil(b2)
 
-	buf := NewBuffer(10, b1)
+	buf := NewBuffer(nil, 10)
 
 	size, err := buf.Write([]byte("0"))
 	a.NotError(err).True(size > 0)
+
+	err = buf.Add(b1)
+	a.NotError(err)
 
 	// 仅写入一次，应该没有向b1输出内容。
 	a.Equal(b1.Len(), 0)
@@ -35,7 +38,7 @@ func TestBuffer(t *testing.T) {
 	a.Equal(b1.Len(), 10).Equal(b1.String(), "0123456789")
 
 	// 添加B2
-	buf.AddWriter(b2)
+	buf.Add(b2)
 	size, err = buf.Write([]byte("9"))
 	a.NotError(err).True(size > 0)
 

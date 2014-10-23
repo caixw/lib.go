@@ -7,9 +7,9 @@ package logs
 import (
 	"encoding/xml"
 	"fmt"
-	"github.com/caixw/lib.go/logs/writer"
 	"io"
-	"os"
+
+	"github.com/caixw/lib.go/logs/writer"
 )
 
 // 用于表示config.xml中的配置数据。
@@ -18,17 +18,6 @@ type Config struct {
 	Name   string             // writer的名称，一般为节点名
 	Attrs  map[string]string  // 参数列表
 	Items  map[string]*Config // 若是容器，则还有子项
-}
-
-// 从xml 文件初始化Config实例。
-func loadFromXmlFile(file string) (*Config, error) {
-	f, err := os.Open(file)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	return loadFromXml(f)
 }
 
 // 从一个xml reader初始化Config
@@ -89,9 +78,9 @@ func (c *Config) toWriter() (io.Writer, error) {
 		return w, err
 	}
 
-	cont, ok := w.(writer.WriterContainer)
+	cont, ok := w.(writer.FlushAdder)
 	if !ok {
-		return nil, fmt.Errorf("[%v]并未实现writer.WriterContainer接口", c.Name)
+		return nil, fmt.Errorf("[%v]并未实现writer.FlushAdder接口", c.Name)
 	}
 
 	for _, cfg := range c.Items {
@@ -99,7 +88,7 @@ func (c *Config) toWriter() (io.Writer, error) {
 		if err != nil {
 			return nil, err
 		}
-		cont.AddWriter(wr)
+		cont.Add(wr)
 	}
 
 	return w, nil

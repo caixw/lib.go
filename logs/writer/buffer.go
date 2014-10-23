@@ -5,34 +5,38 @@
 package writer
 
 import (
+	"errors"
 	"io"
 )
 
-// 带缓存功能的io.Writer，只有数量达到size
-// 日志才会真正写入到w中。
 type Buffer struct {
-	size   int
-	buffer [][]byte
-	w      io.Writer
+	size   int       // 最大的缓存数量
+	buffer [][]byte  // 缓存的消息
+	w      io.Writer // 输出的writer
 }
 
-var _ WriterContainer = &Buffer{}
+var _ WriteFlushAdder = &Buffer{}
 
 // 新建一个Buffer
 // 当size小于1时，相当于其值为1
-func NewBuffer(size int, w io.Writer) *Buffer {
-	return &Buffer{size: size, w: w}
+func NewBuffer(w io.Writer, size int) *Buffer {
+	return &Buffer{size: size, w: w, buffer: make([][]byte, 0, size)}
 }
 
 // WriterContainer.AddWriter
-func (b *Buffer) AddWriter(w io.Writer) error {
-	if ws, ok := b.w.(WriterContainer); ok {
-		ws.AddWriter(w)
+func (b *Buffer) Add(w io.Writer) error {
+	if b.w == nil {
+		b.w = w
 		return nil
 	}
 
-	if ws, ok := w.(WriterContainer); ok {
-		ws.AddWriter(b.w)
+	if ws, ok := b.w.(WriteAdder); ok {
+		ws.Add(w)
+		return nil
+	}
+
+	if ws, ok := w.(WriteAdder); ok {
+		ws.Add(b.w)
 		b.w = ws
 		return nil
 	}
@@ -58,6 +62,10 @@ func (b *Buffer) Write(bs []byte) (int, error) {
 
 // 分发所有的内容。
 func (b *Buffer) Flush() (size int, err error) {
+	if b.w == nil {
+		return 0, errors.New("并未指定输出环境，b.w指向空值")
+	}
+
 	for _, buf := range b.buffer {
 		if size, err = b.w.Write(buf); err != nil {
 			return

@@ -3,36 +3,36 @@
     <!-- info内容，先缓存到一定10条，再一次性输出 -->
     <info prefix="" flag="">
         <buffer size="100">
-            <file dir="/var/logs/info/" size="5M" />
+            <rotate dir="./testdata/info/" size="5M" />
         </buffer>
     </info>
 
     <!-- debug日志 -->
     <debug>
         <buffer size="5">
-            <file dir="/var/logs/debug/" size="5M" />
+            <rotate dir="./testdata/debug/" size="5M" />
         </bufer>
     </debug>
 
     <trace>
         <buffer size="5">
-            <file dir="/var/logs/debug/" size="5M" />
+            <rotate dir="./testdata/debug/" size="5M" />
         </bufer>
     </trace>
 
     <warn>
-        <file dir="/var/logs/debug/" size="5M" />
+        <file dir="./testdata/debug/" size="5M" />
     </warn>
 
     <error>
         <console w="stderr" color="\033[1m" />
         <stmp username=".." password="" host="" />
-        <file dir="/var/logs/debug/" size="5M" />
+        <rotate dir="./testdata/debug/" size="5M" />
     </error>
 
     <critical>
         <console w="stderr" color="\033[1m" />
         <stmp username=".." password="" host="" />
-        <file dir="/var/logs/debug/" size="5M" />
+        <rotate dir="./testdata/debug/" size="5M" />
     </critical>
 </logs>

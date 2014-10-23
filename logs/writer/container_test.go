@@ -26,7 +26,7 @@ func TestContainer(t *testing.T) {
 	a.Equal("hello", b1.String())
 	a.NotEqual("hello", b2.String())
 
-	c.AddWriter(b2)
+	c.Add(b2)
 	size, err = c.Write([]byte(" world"))
 	a.NotError(err).True(size > 0)
 

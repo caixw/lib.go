@@ -12,7 +12,7 @@ import (
 )
 
 func TestConsole(t *testing.T) {
-	c := NewConsole(term.FCyan, os.Stderr)
+	c := NewConsole(os.Stderr, term.FCyan)
 	c.Write([]byte("is cyan\n"))
 
 	c.SetColor(term.FBlue)

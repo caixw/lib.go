@@ -23,8 +23,7 @@ func TestInit(t *testing.T) {
 	a := assert.New(t)
 
 	// 清空，包的init函数有可能会初始化一些数据。
-	regInitializer = make(map[string]WriterInitializer)
-	regNames = make([]string, 0)
+	clearInitializer()
 
 	a.True(Register("init1", init1)).
 		True(IsRegisted("init1")).
@@ -39,4 +38,7 @@ func TestInit(t *testing.T) {
 
 	a.False(Register("init1", init2)) // 重复注册
 	a.True(IsRegisted("init1"))
+
+	clearInitializer()
+	a.Equal(0, len(regNames)).Equal(0, len(regInitializer))
 }

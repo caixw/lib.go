@@ -6,14 +6,18 @@ package logs
 
 import (
 	"bytes"
+	"io"
 	"testing"
 
 	"github.com/caixw/lib.go/assert"
+	"github.com/caixw/lib.go/logs/writer"
 )
 
-var xmlCfg = `
+func TestLoadFromXml(t *testing.T) {
+	var xmlCfg = `
 <?xml version="1.0" encoding="utf-8" ?>
 <logs>
+    <!-- comment -->
     <info>
         <buffer size="5">
             <file dir="/var/logs/info" />
@@ -21,6 +25,7 @@ var xmlCfg = `
         <console color="\033[12m" />
     </info>
 
+    <!-- 中文注释 -->
     <debug>
         <file dir="/var/logs/debug" />
         <console color="\033[12" />
@@ -28,7 +33,6 @@ var xmlCfg = `
 </logs>
 `
 
-func TestLoadFromXml(t *testing.T) {
 	a := assert.New(t)
 
 	r := bytes.NewReader([]byte(xmlCfg))
@@ -45,4 +49,68 @@ func TestLoadFromXml(t *testing.T) {
 	buf, found := info.Items["buffer"]
 	a.True(found).NotNil(buf)
 	a.Equal(buf.Attrs["size"], "5")
+}
+
+// test config.toWriter
+
+// configTestWriter.Write的输入内容，写到此变量中
+var configTestWriterContent []byte
+
+type configTestWriter struct {
+	ws []io.Writer
+}
+
+func (t *configTestWriter) Write(bs []byte) (int, error) {
+	configTestWriterContent = append(configTestWriterContent, bs...)
+	return len(bs), nil
+}
+
+func (t *configTestWriter) AddWriter(w io.Writer) error {
+	t.ws = append(t.ws, w)
+	return nil
+}
+
+var xmlCfg = `
+<?xml version="1.0" encoding="utf-8" ?>
+<logs>
+    <debug>
+    </debug>
+</logs>
+`
+
+func TestConfigToWriter(t *testing.T) {
+	a := assert.New(t)
+	clearInitializer()
+
+	logs := func(args map[string]string) (io.Writer, error) {
+		return writer.NewContainer(), nil
+	}
+	a.True(Register("logs", logs))
+
+	debug := func(args map[string]string) (io.Writer, error) {
+		return &configTestWriter{}, nil
+	}
+	a.True(Register("debug", debug))
+
+	// 加载xml
+	r := bytes.NewReader([]byte(xmlCfg))
+	a.NotNil(r)
+
+	cfg, err := loadFromXml(r)
+	a.NotError(err).NotNil(cfg)
+
+	// 转换成writer
+	w, err := cfg.toWriter()
+	a.NotError(err).NotNil(w)
+
+	// 转换成writer.Container
+	c, ok := w.(*writer.Container)
+	a.True(ok).NotNil(c)
+
+	// 写入c，应该有内容输出到configTestWriterContent
+	c.Write([]byte("hello"))
+	a.Equal(configTestWriterContent, []byte("hello"))
+
+	c.Write([]byte(" world"))
+	a.Equal(configTestWriterContent, []byte("hello world"))
 }
