@@ -92,3 +92,13 @@ func (a *Assertion) NotPanic(fn func(), msg ...interface{}) *Assertion {
 	NotPanic(a.t, fn, msg...)
 	return a
 }
+
+func (a *Assertion) Contains(container, item interface{}, msg ...interface{}) *Assertion {
+	Contains(a.t, container, item)
+	return a
+}
+
+func (a *Assertion) NotContains(container, item interface{}, msg ...interface{}) *Assertion {
+	NotContains(a.t, container, item)
+	return a
+}

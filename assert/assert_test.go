@@ -135,3 +135,17 @@ func TestNotPanic(t *testing.T) {
 
 	NotPanic(t, f1)
 }
+
+func TestContains(t *testing.T) {
+	s1 := []int{1, 2, 3}
+	s2 := []int8{1, 2}
+
+	Contains(t, s1, s2)
+}
+
+func TestNotContains(t *testing.T) {
+	s1 := []int{1, 2, 3}
+	s2 := []int8{1, 3}
+
+	NotContains(t, s1, s2)
+}
