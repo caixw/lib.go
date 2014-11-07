@@ -5,7 +5,9 @@
 package assert
 
 import (
+	"bytes"
 	"reflect"
+	"strings"
 	"time"
 )
 
@@ -89,7 +91,14 @@ func IsNil(expr interface{}) bool {
 // 判断两个值是否相等。
 //
 // 除了通过reflect.DeepEqual()判断值是否相等之外，一些类似
-// 可转换的数值也能正确判断，比如int(5)与int64(5)能正确判断。
+// 可转换的数值也能正确判断，比如以下值也将会被判断为相等：
+//  int8(5)                     == int(5)
+//  []int{1,2}                  == []int8{1,2}
+//  []int{1,2}                  == []float32{1,2}
+//  map[string]int{"1":"2":2}   == map[string]int8{"1":1,"2":2}
+//
+//  // map的键值不同，即使可相互转换也判断不相等。
+//  map[int]int{1:1,2:2}        <> map[int8]int{1:1,2:2}
 func IsEqual(v1, v2 interface{}) bool {
 	if reflect.DeepEqual(v1, v2) {
 		return true
@@ -108,21 +117,79 @@ func IsEqual(v1, v2 interface{}) bool {
 	}
 
 	vv1Type := vv1.Type()
+	vv2Type := vv2.Type()
 
-	// reflect.DeepEqual已经比较过以下类型的值，若是以下类型，直接返回false。
-	// 在reflect.DeepEqual()中比较[]string{"1"},[]string{"2"}会返回false，但是以
-	// 下的ConvertableTo中又可以转换， 进而又进行一次比较。所以此处必须过滤掉已经
-	// 在reflect.DeepEqual()中已经处理过的值。
+	// 过滤掉已经在reflect.DeepEqual()进行处理的类型
 	switch vv1Type.Kind() {
-	case reflect.Slice, reflect.Array, reflect.Map, reflect.Struct, reflect.Ptr, reflect.Func, reflect.Interface:
+	case reflect.Struct, reflect.Ptr, reflect.Func, reflect.Interface:
+		return false
+	case reflect.Slice, reflect.Array:
+		if vv2.Kind() != reflect.Slice && vv2.Kind() != reflect.Array {
+			if vv2Type.ConvertibleTo(vv1Type) { // 考虑vv1是[]byte,vv2是string的情况
+				return IsEqual(vv1.Interface(), vv2.Convert(vv1Type).Interface())
+			}
+			return false
+		}
+
+		// reflect.DeepEqual()未考虑类型不同但是类型可转换的情况，比如：
+		// []int{8,9} == []int8{8,9}，此处重新对slice和array做比较处理。
+		if vv1.IsNil() != vv2.IsNil() {
+			return false
+		}
+		if vv1.Len() != vv2.Len() {
+			return false
+		}
+		if vv1.Pointer() == vv2.Pointer() {
+			return true
+		}
+
+		for i := 0; i < vv1.Len(); i++ {
+			if !IsEqual(vv1.Index(i).Interface(), vv2.Index(i).Interface()) {
+				return false
+			}
+		}
+		return true // for中所有的值比较都相等，返回true
+	case reflect.Map:
+		if vv2.Kind() != reflect.Map {
+			return false
+		}
+
+		if vv1.IsNil() != vv2.IsNil() {
+			return false
+		}
+		if vv1.Len() != vv2.Len() {
+			return false
+		}
+		if vv1.Pointer() == vv2.Pointer() {
+			return true
+		}
+
+		// 两个map的键名类型不同
+		if vv2Type.Key().Kind() != vv1Type.Key().Kind() {
+			return false
+		}
+
+		for _, index := range vv1.MapKeys() {
+			if !IsEqual(vv1.MapIndex(index).Interface(), vv2.MapIndex(index).Interface()) {
+				return false
+			}
+		}
+		return true // for中所有的值比较都相等，返回true
+	case reflect.String:
+		if vv2.Kind() == reflect.String {
+			return vv1.String() == vv2.String()
+		}
+		if vv2Type.ConvertibleTo(vv1Type) { // 考虑v1是string，v2是[]byte的情况
+			return IsEqual(vv1.Interface(), vv2.Convert(vv1Type).Interface())
+		}
+
 		return false
 	}
 
-	vv2Type := vv2.Type()
 	if vv1Type.ConvertibleTo(vv2Type) {
-		return vv2.Interface() == vv1.Convert(vv2Type).Interface()
+		return vv2 == vv1.Convert(vv2Type)
 	} else if vv2Type.ConvertibleTo(vv1Type) {
-		return vv1.Interface() == vv2.Convert(vv1Type).Interface()
+		return vv1 == vv2.Convert(vv1Type)
 	}
 
 	return false
@@ -139,4 +206,150 @@ func HasPanic(fn func()) (has bool, msg interface{}) {
 	fn()
 
 	return
+}
+
+// 判断container是否包含了item的内容。若是指针，会判断指针指向的内容，
+// 但是不支持多重指针。
+//
+// 若container是字符串(string、[]byte和[]rune，不包含fmt.Stringer接口)，
+// 都将会以字符串的形式判断其是否包含item。
+// 若container是个列表(array、slice、map)则判断其元素中是否包含item中的
+// 的所有项，或是item本身就是container中的一个元素。
+func IsContains(container, item interface{}) bool {
+	if container == nil { // nil不包含任何东西
+		return false
+	}
+
+	cv := reflect.ValueOf(container)
+	iv := reflect.ValueOf(item)
+
+	if cv.Kind() == reflect.Ptr {
+		cv = cv.Elem()
+	}
+
+	if iv.Kind() == reflect.Ptr {
+		iv = iv.Elem()
+	}
+
+	if IsEqual(container, item) {
+		return true
+	}
+
+	// 判断是字符串的情况
+	switch c := cv.Interface().(type) {
+	case string:
+		switch i := iv.Interface().(type) {
+		case string:
+			return strings.Contains(c, i)
+		case []byte:
+			return strings.Contains(c, string(i))
+		case []rune:
+			return strings.Contains(c, string(i))
+		case byte:
+			return bytes.IndexByte([]byte(c), i) != -1
+		case rune:
+			return bytes.IndexRune([]byte(c), i) != -1
+		}
+	case []byte:
+		switch i := iv.Interface().(type) {
+		case string:
+			return bytes.Contains(c, []byte(i))
+		case []byte:
+			return bytes.Contains(c, i)
+		case []rune:
+			return strings.Contains(string(c), string(i))
+		case byte:
+			return bytes.IndexByte(c, i) != -1
+		case rune:
+			return bytes.IndexRune(c, i) != -1
+		}
+	case []rune:
+		switch i := iv.Interface().(type) {
+		case string:
+			return strings.Contains(string(c), string(i))
+		case []byte:
+			return strings.Contains(string(c), string(i))
+		case []rune:
+			return strings.Contains(string(c), string(i))
+		case byte:
+			return strings.IndexByte(string(c), i) != -1
+		case rune:
+			return strings.IndexRune(string(c), i) != -1
+		}
+	}
+
+	if (cv.Kind() == reflect.Slice) || (cv.Kind() == reflect.Array) {
+		if !cv.IsValid() || cv.Len() == 0 { // 空的，就不算包含另一个，即使另一个也是空值。
+			return false
+		}
+
+		if !iv.IsValid() {
+			return false
+		}
+
+		// item是container的一个元素
+		for i := 0; i < cv.Len(); i++ {
+			if IsEqual(cv.Index(i).Interface(), iv.Interface()) {
+				return true
+			}
+		}
+
+		// 开始判断item的元素是否与container中的元素相等。
+
+		// 若item的长度为0，表示不包含
+		if (iv.Kind() != reflect.Slice) || (iv.Len() == 0) {
+			return false
+		}
+
+		// item的元素比container的元素多，必须在判断完item不是container中的一个元素之
+		if iv.Len() > cv.Len() {
+			return false
+		}
+
+		// 依次比较item的各个子元素是否都存在于container，且下标都相同
+		ivIndex := 0
+		for i := 0; i < cv.Len(); i++ {
+			if IsEqual(cv.Index(i).Interface(), iv.Index(ivIndex).Interface()) {
+				if (ivIndex == 0) && (i+iv.Len() > cv.Len()) {
+					return false
+				}
+				ivIndex++
+				if ivIndex == iv.Len() { // 已经遍历完iv
+					return true
+				}
+			} else if ivIndex > 0 {
+				return false
+			}
+		}
+		return false
+	} // end cv.Kind == reflect.Slice and reflect.Array
+
+	if cv.Kind() == reflect.Map {
+		if cv.Len() == 0 {
+			return false
+		}
+
+		if (iv.Kind() != reflect.Map) || (iv.Len() == 0) {
+			return false
+		}
+
+		if iv.Len() > cv.Len() {
+			return false
+		}
+
+		// 判断所有item的项都存在于container中
+		for _, key := range iv.MapKeys() {
+			cvItem := iv.MapIndex(key)
+			if !cvItem.IsValid() { // container中不包含该值。
+				return false
+			}
+			if !IsEqual(cvItem.Interface(), iv.MapIndex(key).Interface()) {
+				return false
+			}
+		}
+		// for中的所有判断都成立，返回true
+		return true
+	}
+
+	return false
 }

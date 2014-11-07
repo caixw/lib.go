@@ -187,3 +187,14 @@ func NotPanic(t *testing.T, fn func(), args ...interface{}) {
 	has, msg := HasPanic(fn)
 	assert(t, !has, args, []interface{}{"发生了panic，其信息为[%]", msg})
 }
+
+// 断言container包含item的或是包含item中的所有项
+// 具体函数说明可参考IsContains()
+func Contains(t *testing.T, container, item interface{}, args ...interface{}) {
+	assert(t, IsContains(container, item), args, []interface{}{"container:[%v]并未包含item[%v]", container, item})
+}
+
+// 断言container不包含item的或是不包含item中的所有项
+func NotContains(t *testing.T, container, item interface{}, args ...interface{}) {
+	assert(t, !IsContains(container, item), args, []interface{}{"container:[%v]包含item[%v]", container, item})
+}
