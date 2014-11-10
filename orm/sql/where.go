@@ -6,8 +6,9 @@ package sql
 
 import (
 	"bytes"
-	"github.com/caixw/lib.go/orm/internal"
 	"strings"
+
+	"github.com/caixw/lib.go/orm/internal"
 )
 
 const (
