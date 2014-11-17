@@ -11,7 +11,12 @@ import (
 )
 
 var tag1 = "name,abc;name2,;;name3,n1,n2"
-var tag2 = "name(abc);name2;;name3(n1,n2);"
+var tag2 = "name(abc);name2,;;name3(n1,n2)"
+
+func TestReplace(t *testing.T) {
+	tag := styleReplace.Replace(tag2)
+	assert.Equal(t, tag, tag1)
+}
 
 func TestParse(t *testing.T) {
 	a := assert.New(t)
@@ -44,11 +49,11 @@ func TestGet(t *testing.T) {
 	}
 
 	fn(tag1, "name", []string{"abc"})
-	fn(tag1, "name2", nil)
+	fn(tag1, "name2", []string{})
 	fn(tag1, "name3", []string{"n1", "n2"})
 
 	fn(tag2, "name", []string{"abc"})
-	fn(tag2, "name2", nil)
+	fn(tag2, "name2", []string{})
 	fn(tag2, "name3", []string{"n1", "n2"})
 }
 

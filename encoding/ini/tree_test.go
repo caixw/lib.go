@@ -13,12 +13,12 @@ import (
 )
 
 type section1 struct { // 测试key2是否被正常忽略
-	Key1 string `ini:"name:key1"`
+	Key1 string `ini:"name(key1)"`
 }
 
 type section2 struct {
 	Key1 string // 不使用struct tag
-	Key2 int    `ini:"name:key2;set:CustomSetFunc;get:CustomGetFunc;";json:"abc"` // 自定义的转换函数
+	Key2 int    `ini:"name(key2);set(CustomSetFunc);get(CustomGetFunc);" json:"abc"` // 自定义的转换函数
 }
 
 func (s *section2) CustomSetFunc(val string, v reflect.Value) error {
@@ -39,9 +39,9 @@ func (s *section2) CustomGetFunc(v reflect.Value) (string, error) {
 }
 
 type root struct {
-	Key      string    `ini:"name:key;"`
-	Section2 *section2 `ini:"name:section2"`
-	Section1 *section1 `ini:"name:section1"`
+	Key      string    `ini:"name(key)"`
+	Section2 *section2 `ini:"name(section2)"`
+	Section1 *section1 `ini:"name(section1)"`
 }
 
 func TestUnmarshal(t *testing.T) {

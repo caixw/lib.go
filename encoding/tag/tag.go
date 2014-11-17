@@ -53,6 +53,7 @@ func Parse(tag string) map[string][]string {
 		if len(part) == 0 {
 			continue
 		}
+		part = strings.Trim(part, ",")
 		items := strings.Split(part, ",")
 		ret[items[0]] = items[1:]
 	}
@@ -76,6 +77,8 @@ func Get(tag, name string) ([]string, bool) {
 		if len(part) == 0 {
 			continue
 		}
+
+		part = strings.Trim(part, ",")
 		items := strings.Split(part, ",")
 		if items[0] == name {
 			return items[1:], true
@@ -111,6 +114,7 @@ func Has(tag, name string) bool {
 			continue
 		}
 
+		part = strings.Trim(part, ",")
 		items := strings.SplitN(part, ",", 2)
 		if items[0] == name {
 			return true
