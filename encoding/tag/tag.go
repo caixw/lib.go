@@ -3,9 +3,22 @@
 // license that can be found in the LICENSE file.
 
 // tag包实现对特定格式的struct tag字符串的分析。
-// 并不具有很强的通用性。
-//  "id:1;unique;fun:add,1,2;"
-// 将会被解析成：
+// 并不具有很强的通用性。支持以下两种格式的字符串。
+//
+// 1. 以分号分隔的字符串，每个子串又以逗号分隔，
+// 第一个字符串为键名，之后的字符串组成的数组为键值。如：
+//  "id,1;unique;fun,add,1,2;"
+//  // 以下将会被解析成：
+//  [
+//       "id"    :["1"],
+//       "unique":nil,
+//       "fun"   :["add","1","2"]
+//  ]
+//
+// 2.以分号分隔的字符串，每个子串括号前的字符串为健名，
+// 括号中的字符串以逗号分隔组成数组为键值。如：
+//  "id(1);unique;fun(add,1,2)"
+//  // 以下将会被解析成：
 //  [
 //       "id"    :["1"],
 //       "unique":nil,
@@ -18,7 +31,10 @@ import (
 )
 
 // 当前库的版本
-const Version = "0.1.0.140910"
+const Version = "0.2.1.141117"
+
+// 将第二种风格的struct tag转换成第一种风格的。
+var styleReplace = strings.NewReplacer("(", ",", ")", "")
 
 // 分析tag的内容，并以map的形式返回
 func Parse(tag string) map[string][]string {
@@ -28,18 +44,17 @@ func Parse(tag string) map[string][]string {
 		return nil
 	}
 
+	if strings.IndexByte(tag, '(') > -1 {
+		tag = styleReplace.Replace(tag)
+	}
+
 	parts := strings.Split(tag, ";")
 	for _, part := range parts {
 		if len(part) == 0 {
 			continue
 		}
-
-		kv := strings.SplitN(part, ":", 2)
-		if len(kv) == 1 {
-			ret[kv[0]] = nil
-		} else {
-			ret[kv[0]] = strings.Split(kv[1], ",")
-		}
+		items := strings.Split(part, ",")
+		ret[items[0]] = items[1:]
 	}
 
 	return ret
@@ -52,20 +67,19 @@ func Get(tag, name string) ([]string, bool) {
 		return nil, false
 	}
 
+	if strings.IndexByte(tag, '(') > -1 {
+		tag = styleReplace.Replace(tag)
+	}
+
 	parts := strings.Split(tag, ";")
 	for _, part := range parts {
 		if len(part) == 0 {
 			continue
 		}
-
-		kv := strings.SplitN(part, ":", 2)
-		if kv[0] != name {
-			continue
+		items := strings.Split(part, ",")
+		if items[0] == name {
+			return items[1:], true
 		}
-		if len(kv) == 1 {
-			return nil, true
-		}
-		return strings.Split(kv[1], ","), true
 	}
 
 	return nil, false
@@ -87,14 +101,18 @@ func Has(tag, name string) bool {
 		return false
 	}
 
+	if strings.IndexByte(tag, '(') > -1 {
+		tag = styleReplace.Replace(tag)
+	}
+
 	parts := strings.Split(tag, ";")
 	for _, part := range parts {
 		if len(part) == 0 {
 			continue
 		}
 
-		kv := strings.SplitN(part, ":", 2)
-		if kv[0] == name {
+		items := strings.SplitN(part, ",", 2)
+		if items[0] == name {
 			return true
 		}
 	}
