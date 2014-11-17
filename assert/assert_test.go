@@ -137,15 +137,17 @@ func TestNotPanic(t *testing.T) {
 }
 
 func TestContains(t *testing.T) {
-	s1 := []int{1, 2, 3}
-	s2 := []int8{1, 2}
-
-	Contains(t, s1, s2)
+	Contains(t, []int{1, 2, 3}, []int8{1, 2})
 }
 
 func TestNotContains(t *testing.T) {
-	s1 := []int{1, 2, 3}
-	s2 := []int8{1, 3}
+	NotContains(t, []int{1, 2, 3}, []int8{1, 3})
+}
 
-	NotContains(t, s1, s2)
+func TestStringEqual(t *testing.T) {
+	StringEqual(t, "abc", "aBc", StyleCase)
+}
+
+func TestStringNotEqual(t *testing.T) {
+	StringNotEqual(t, "abc", "aBc", StyleStrit)
 }
