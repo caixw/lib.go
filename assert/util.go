@@ -12,6 +12,7 @@ import (
 )
 
 // 判断一个值是否为空(0, "", false, 空数组等)。
+// []string{""}空数组里套一个空字符串，不会被判断为空。
 func IsEmpty(expr interface{}) bool {
 	if expr == nil {
 		return true

@@ -64,6 +64,14 @@ func TestIsEqual(t *testing.T) {
 }
 
 func TestIsEmpty(t *testing.T) {
+	if IsEmpty([]string{""}) {
+		t.Error("IsEmpty([]string{\"\"})")
+	}
+
+	if !IsEmpty([]string{}) {
+		t.Error("IsEmpty([]string{})")
+	}
+
 	if !IsEmpty([]int{}) {
 		t.Error("IsEmpty([]int{})")
 	}
