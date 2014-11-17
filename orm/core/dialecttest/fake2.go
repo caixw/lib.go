@@ -7,9 +7,8 @@ package test
 import (
 	"database/sql"
 	"database/sql/driver"
-	"reflect"
 
-	"github.com/caixw/lib.go/orm/dialect"
+	"github.com/caixw/lib.go/orm/core"
 	_ "github.com/go-sql-driver/mysql"
 )
 
@@ -25,20 +24,17 @@ func (f *fakeDb2) Open(name string) (driver.Conn, error) {
 
 // 测试用dialect.Dialect接口实例
 type fakeDialect2 struct {
+	base
 	num int
 }
 
-var _ dialect.Dialect = &fakeDialect2{}
+var _ core.Dialect = &fakeDialect2{}
 
-func (t *fakeDialect2) Quote() (string, string) {
+func (t *fakeDialect2) QuoteStr() (string, string) {
 	return "{", "}"
 }
 
-func (t *fakeDialect2) ToSqlType(typ reflect.Type, l1, l2 int) string {
-	return ""
-}
-
-func (t *fakeDialect2) Limit(limit, offset int) (string, []interface{}) {
+func (t *fakeDialect2) LimitSQL(limit, offset int) (string, []interface{}) {
 	return "", nil
 }
 
@@ -46,8 +42,8 @@ func (t *fakeDialect2) Limit(limit, offset int) (string, []interface{}) {
 func init() {
 	sql.Register("fakedb2", &fakeDb2{})
 
-	if !dialect.IsRegisted("fakedb2") {
-		err := dialect.Register("fakedb2", &fakeDialect2{})
+	if !core.IsRegistedDialect("fakedb2") {
+		err := core.RegisterDialect("fakedb2", &fakeDialect2{})
 		if err != nil {
 			panic(err)
 		}

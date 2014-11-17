@@ -7,6 +7,9 @@ package orm
 import (
 	"fmt"
 	"sync"
+
+	// 加载预定义的dialect
+	_ "github.com/caixw/lib.go/orm/internal"
 )
 
 type engineMap struct {
@@ -25,14 +28,14 @@ func New(driverName, dataSourceName, engineName, prefix string) (*Engine, error)
 		return nil, fmt.Errorf("该名称[%v]的Engine已经存在", engineName)
 	}
 
-	db, err := newDB(driverName, dataSourceName, prefix)
+	e, err := newEngine(driverName, dataSourceName, prefix)
 	if err != nil {
 		return nil, err
 	}
 
-	engines.items[engineName] = &Engine{db: db}
+	engines.items[engineName] = e
 
-	return engines.items[engineName], nil
+	return e, nil
 }
 
 // 获取指定名称的Engine，若不存在则found值返回false。
@@ -54,7 +57,7 @@ func Close(engineName string) {
 		return
 	}
 
-	e.db.close()
+	e.close()
 	delete(engines.items, engineName)
 }
 
@@ -64,7 +67,7 @@ func CloseAll() {
 	defer engines.Unlock()
 
 	for _, v := range engines.items {
-		v.db.close()
+		v.close()
 	}
 
 	// 重新声明一块内存，而不是直接赋值nil

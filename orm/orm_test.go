@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/caixw/lib.go/assert"
-	_ "github.com/caixw/lib.go/orm/dialect/test"
+	_ "github.com/caixw/lib.go/orm/core/dialecttest"
 )
 
 // 测试engines的一些常用操作：New,Get,Close,CloseAll

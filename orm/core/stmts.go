@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
-package orm
+package core
 
 import (
 	"database/sql"
@@ -14,17 +14,17 @@ import (
 type Stmts struct {
 	sync.Mutex
 	items map[string]*sql.Stmt
-	db    *db
+	db    DB
 }
 
-func newStmts(db *db) *Stmts {
+func NewStmts(d DB) *Stmts {
 	return &Stmts{
-		items: make(map[string]*sql.Stmt),
-		db:    db,
+		items: map[string]*sql.Stmt{},
+		db:    d,
 	}
 }
 
-func (s *Stmts) AddSql(name, sql string) (*sql.Stmt, error) {
+func (s *Stmts) AddSQL(name, sql string) (*sql.Stmt, error) {
 	s.Lock()
 	defer s.Unlock()
 
@@ -41,7 +41,7 @@ func (s *Stmts) AddSql(name, sql string) (*sql.Stmt, error) {
 	return stmt, nil
 }
 
-func (s *Stmts) SetSql(name, sql string) (*sql.Stmt, error) {
+func (s *Stmts) SetSQL(name, sql string) (*sql.Stmt, error) {
 	stmt, err := s.db.Prepare(sql)
 	if err != nil {
 		return nil, err
@@ -82,7 +82,12 @@ func (s *Stmts) Get(name string) (stmt *sql.Stmt, found bool) {
 	return
 }
 
+// 清除所有的缓存。
+func (s *Stmts) Clear() {
+	s.items = map[string]*sql.Stmt{}
+}
+
 // 释放所有缓存空间。
-func (s *Stmts) free() {
+func (s *Stmts) Free() {
 	s.items = nil
 }

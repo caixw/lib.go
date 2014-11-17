@@ -2,29 +2,13 @@
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
-package dialect
+package core
 
 import (
 	"fmt"
 	"reflect"
 	"sync"
 )
-
-// 通用但又没有统一标准的数据库功能接口。
-//
-// 有可能一个Dialect实例会被多个其它实例引用，不应该
-// 在Dialect实例中保存状态值等内容。
-type Dialect interface {
-	// 对字段或是表名的引用符号
-	Quote() (left, right string)
-
-	// 将go类型转换成sql类型的表示方式
-	ToSqlType(t reflect.Type, len1, len2 int) string
-
-	// 生成limit n offset m语句
-	// 返回的是对应数据库的limit语句以及语句中占位符对应的值
-	Limit(limit, offset int) (sql string, vals []interface{})
-}
 
 type dialectMap struct {
 	sync.Mutex
@@ -35,7 +19,7 @@ type dialectMap struct {
 var dialects = &dialectMap{items: make(map[string]Dialect)}
 
 // 清空所有已经注册的dialect
-func clear() {
+func clearDialects() {
 	dialects.Lock()
 	defer dialects.Unlock()
 
@@ -44,7 +28,7 @@ func clear() {
 
 // 注册一个新的Dialect
 // name值应该与sql.Open()中的driverName参数相同。
-func Register(name string, d Dialect) error {
+func RegisterDialect(name string, d Dialect) error {
 	// TODO(caixw) GO1.4 database/sql包可以查询已注册driverName
 	// 列表，通过判断是否在该列表，再判断能否注册。
 	dialects.Lock()
@@ -65,13 +49,13 @@ func Register(name string, d Dialect) error {
 }
 
 // 指定名称的Dialect是否已经被注册
-func IsRegisted(name string) bool {
+func IsRegistedDialect(name string) bool {
 	_, found := dialects.items[name]
 	return found
 }
 
 // 所有已经注册的Dialect名称列表
-func Registed() (ds []string) {
+func RegistedDialects() (ds []string) {
 	dialects.Lock()
 	defer dialects.Unlock()
 
@@ -83,7 +67,7 @@ func Registed() (ds []string) {
 }
 
 // 获取一个Dialect
-func Get(name string) (d Dialect, found bool) {
+func GetDialect(name string) (d Dialect, found bool) {
 	dialects.Lock()
 	defer dialects.Unlock()
 

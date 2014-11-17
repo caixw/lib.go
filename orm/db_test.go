@@ -8,18 +8,17 @@ import (
 	"testing"
 
 	"github.com/caixw/lib.go/assert"
-	_ "github.com/caixw/lib.go/orm/dialect/test"
+	_ "github.com/caixw/lib.go/orm/core/dialecttest"
 )
 
 func TestDBReplaceQuote(t *testing.T) {
 	a := assert.New(t)
 
-	//CloseAll() // 先关闭，方便后面随便创建
-	d, err := newDB("fakedb1", "root:@/", "test_")
-	a.NotError(err).NotNil(d)
+	e, err := newEngine("fakedb1", "datasource", "prefix_")
+	a.NotError(err).NotNil(e)
 
 	fn := func(sql, wont string) {
-		str := d.ReplaceQuote(sql)
+		str := e.ReplaceQuote(sql)
 		a.Equal(str, wont)
 	}
 
@@ -42,12 +41,11 @@ func TestDBReplaceQuote(t *testing.T) {
 func TestDBReplaceTable(t *testing.T) {
 	a := assert.New(t)
 
-	//CloseAll() // 先关闭，方便后面随便创建
-	d, err := newDB("fakedb1", "root:@/", "test_")
-	a.NotError(err).NotNil(d)
+	e, err := newEngine("fakedb1", "datasource", "test_")
+	a.NotNil(e).NotError(err)
 
-	a.Equal(d.ReplacePrefix("table.user.id"), "test_user.id")
-	a.Equal(d.ReplacePrefix("user.id"), "user.id")
-	a.Equal(d.ReplacePrefix("table_user.id"), "table_user.id")
-	a.Equal(d.ReplacePrefix("table_user.table"), "table_user.table")
+	a.Equal(e.ReplacePrefix("table.user.id"), "test_user.id")
+	a.Equal(e.ReplacePrefix("user.id"), "user.id")
+	a.Equal(e.ReplacePrefix("table_user.id"), "table_user.id")
+	a.Equal(e.ReplacePrefix("table_user.table"), "table_user.table")
 }
