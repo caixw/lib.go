@@ -27,4 +27,4 @@
 package assert
 
 // 当前库的版本号
-const Version = "0.4.10.141107"
+const Version = "0.5.11.141118"
