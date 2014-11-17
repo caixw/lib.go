@@ -94,11 +94,21 @@ func (a *Assertion) NotPanic(fn func(), msg ...interface{}) *Assertion {
 }
 
 func (a *Assertion) Contains(container, item interface{}, msg ...interface{}) *Assertion {
-	Contains(a.t, container, item)
+	Contains(a.t, container, item, msg...)
 	return a
 }
 
 func (a *Assertion) NotContains(container, item interface{}, msg ...interface{}) *Assertion {
-	NotContains(a.t, container, item)
+	NotContains(a.t, container, item, msg...)
+	return a
+}
+
+func (a *Assertion) StringEqual(s1, s2 string, style int, msg ...interface{}) *Assertion {
+	StringEqual(a.t, s1, s2, style, msg...)
+	return a
+}
+
+func (a *Assertion) StringNotEqual(s1, s2 string, style int, msg ...interface{}) *Assertion {
+	StringNotEqual(a.t, s1, s2, style, msg...)
 	return a
 }
