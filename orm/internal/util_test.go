@@ -25,3 +25,11 @@ func TestOracleLimitSQL(t *testing.T) {
 	a.Equal(sql, " OFFSET ? ROWS FETCH NEXT ? ROWS ONLY ").
 		Equal(args, []interface{}{0, 5})
 }
+
+func TestInSlice(t *testing.T) {
+	a := assert.New(t)
+
+	a.True(inSlice([]interface{}{1, 2, 3}, 2)).
+		True(inSlice([]interface{}{"abc", "a", "b"}, "a")).
+		False(inSlice([]interface{}{1, 2, 3}, int8(2)))
+}

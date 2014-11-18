@@ -15,3 +15,13 @@ func mysqlLimitSQL(limit, offset int) (string, []interface{}) {
 func oracleLimitSQL(limit, offset int) (string, []interface{}) {
 	return " OFFSET ? ROWS FETCH NEXT ? ROWS ONLY ", []interface{}{offset, limit}
 }
+
+func inSlice(slice []interface{}, item interface{}) bool {
+	for _, v := range slice {
+		if item == v {
+			return true
+		}
+	}
+
+	return false
+}

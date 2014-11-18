@@ -18,6 +18,7 @@ func newDB() (core.DB, error) {
 
 func TestwhereExpr(t *testing.T) {
 	a := assert.New(t)
+	style := assert.StyleTrim | assert.StyleSpace
 
 	e, err := newDB()
 	a.NotError(err).NotNil(e)
@@ -26,7 +27,7 @@ func TestwhereExpr(t *testing.T) {
 	a.NotNil(w)
 
 	w.build(and, `"id"=? and username=?`, 5, "abc")
-	a.Equal(w.condString(e), " WHERE(`id`=? and username=?)").
+	a.StringEqual(w.condString(e), " WHERE(`id`=? and username=?)", style).
 		Equal(w.condArgs, []interface{}{5, "abc"})
 
 	// 重置
@@ -36,7 +37,7 @@ func TestwhereExpr(t *testing.T) {
 
 	// Between
 	w.AndBetween("age", 5, 6)
-	a.Equal(w.condString(e), " WHERE(age BETWEEN ? AND ?)").
+	a.StringEqual(w.condString(e), " WHERE(age BETWEEN ? AND ?)", style).
 		Equal(w.condArgs, []interface{}{5, 6})
 
 	// In函数不指定数据，会触发panic
@@ -44,22 +45,23 @@ func TestwhereExpr(t *testing.T) {
 
 	w.Reset()
 	w.AndIsNull("age")
-	a.Equal(w.condString(e), " WHERE(age IS NULL)").
+	a.StringEqual(w.condString(e), " WHERE(age IS NULL)", style).
 		Equal(len(w.condArgs), 0)
 
 	w.Reset()
 	w.OrIsNotNull("age")
-	a.Equal(w.condString(e), " WHERE(age IS NOT NULL)").
+	a.StringEqual(w.condString(e), " WHERE(age IS NOT NULL)", style).
 		Equal(len(w.condArgs), 0)
 
 	w.Reset()
 	w.And("id=?", 5).AndIn("age", 7, 8, 9).OrIsNotNull("group")
-	a.Equal(w.condString(e), " WHERE(id=?) AND(age IN(?,?,?)) OR(group IS NOT NULL)").
+	a.StringEqual(w.condString(e), " WHERE(id=?) AND(age IN(?,?,?)) OR(group IS NOT NULL)", style).
 		Equal(w.condArgs, []interface{}{5, 7, 8, 9})
 }
 
 func TestDelete(t *testing.T) {
 	a := assert.New(t)
+	style := assert.StyleTrim | assert.StyleSpace
 
 	e, err := newDB()
 	a.NotError(err).NotNil(e)
@@ -72,11 +74,12 @@ func TestDelete(t *testing.T) {
 		OrIn("uid", 1, 2, 3, 4, 5).
 		AndBetween(`"group"`, 1, 10)
 	wont := "DELETE FROM prefix_user WHERE(username like ?) OR(uid IN(?,?,?,?,?)) AND(`group` BETWEEN ? AND ?)"
-	a.Equal(d.SQLString(true), wont)
+	a.StringEqual(d.SQLString(true), wont, style)
 }
 
 func TestUpdate(t *testing.T) {
 	a := assert.New(t)
+	style := assert.StyleTrim | assert.StyleSpace
 
 	e, err := newDB()
 	a.NotError(err).NotNil(e)
@@ -89,11 +92,12 @@ func TestUpdate(t *testing.T) {
 		And("id=?").
 		Or(`"group"=?`)
 	wont := "UPDATE user SET password=?,username=?,`group`=? WHERE(id=?) OR(`group`=?)"
-	a.Equal(u.SQLString(true), wont)
+	a.StringEqual(u.SQLString(true), wont, style)
 }
 
 func TestInsert(t *testing.T) {
 	a := assert.New(t)
+	style := assert.StyleTrim | assert.StyleSpace
 
 	e, err := newDB()
 	a.NotError(err).NotNil(e)
@@ -105,6 +109,6 @@ func TestInsert(t *testing.T) {
 		Columns("uid", "username", `"password"`).
 		Columns("group", "age")
 	wont := "INSERT INTO prefix_user(uid,username,`password`,group,age) VALUES(?,?,?,?,?)"
-	a.Equal(i.SQLString(true), wont).
+	a.StringEqual(i.SQLString(true), wont, style).
 		Equal(len(i.vals), 0)
 }

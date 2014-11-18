@@ -120,6 +120,11 @@ func (e *Engine) Stmt(name string) (*sql.Stmt, bool) {
 	return e.stmts.Get(name)
 }
 
+// 根据obj创建表
+func (e *Engine) Create(obj interface{}) error {
+	return e.Dialect().CreateTable(e, core.NewModel(obj))
+}
+
 func (e *Engine) Update() *Update {
 	return newUpdate(e)
 }

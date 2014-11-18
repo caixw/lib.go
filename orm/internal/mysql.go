@@ -53,6 +53,7 @@ func (m *mysql) CreateTable(db core.DB, model *core.Model) error {
 	return m.createTable(db, model)
 }
 
+// 创建表
 func (m *mysql) createTable(db core.DB, model *core.Model) error {
 	buf := bytes.NewBufferString("CREATE TABLE IF NOT EXISTS ")
 	buf.Grow(300)
@@ -71,6 +72,12 @@ func (m *mysql) createTable(db core.DB, model *core.Model) error {
 
 		if !col.Nullable {
 			buf.WriteString(" NOT NULL")
+		}
+
+		if col.DefVal != "" {
+			buf.WriteString(" DEFAULT '")
+			buf.WriteString(col.DefVal)
+			buf.WriteByte('\'')
 		}
 
 		if col.IsAI() {
@@ -151,23 +158,54 @@ func (m *mysql) createTable(db core.DB, model *core.Model) error {
 	return err
 }
 
+// 更新表
 func (m *mysql) upgradeTable(db core.DB, model *core.Model) error {
 	return nil
 }
 
 func (m *mysql) quote(buf *bytes.Buffer, sql string) {
-	l, r := m.QuoteStr()
-	buf.WriteString(l)
+	buf.WriteByte('`')
 	buf.WriteString(sql)
-	buf.WriteString(r)
+	buf.WriteByte('`')
 }
 
-// 获取表的所有列
-func (m *mysql) getCols(db core.DB, tableName string) []string {
-	//sql := "SELECT `COLUMN_NAME` FROM `INFORMATION_SCHEMA`.`COLUMNS` WHERE `TABLE_SCHEMA`=? AND `TABLE_NAME`=?"
-	//rows, err := db.Query(sql, db.Name(), tableName)
+// 将表转换成core.Model
+func (m *mysql) getModel(db core.DB, tableName string) *core.Model {
+	rows, err := db.Query("DESC `" + tableName + "`")
+	if err != nil {
+		panic(err)
+	}
+
+	mapped, err := core.Fetch2Maps(false, rows)
+	if err != nil {
+		panic(err)
+	}
+
+	model := &core.Model{
+		Cols:          map[string]*core.Column{},
+		KeyIndexes:    map[string][]*core.Column{},
+		UniqueIndexes: map[string][]*core.Column{},
+		FK:            map[string]*core.ForeignKey{},
+		Name:          tableName,
+	}
+
+	for _, c := range mapped {
+		col := &core.Column{
+			Name:     c["Field"].(string),
+			Nullable: c["Null"] == "YES",
+			DefVal:   c["Default"].(string),
+			GoType:   m.getType(c["Type"].(string)),
+		}
+
+		model.Cols[col.Name] = col
+	}
+
+	return model
+}
+
+func (m *mysql) getType(sql string) reflect.Type {
 	//
-	return []string{}
+	//return typeMap[
 }
 
 // 指定的表是否存在
@@ -178,6 +216,22 @@ func (m *mysql) hasTable(db core.DB, tableName string) bool {
 		panic(err)
 	}
 	return rows.Next()
+}
+
+var mysqlTypeMap = map[string]reflect.Type{
+	"BOOLEAN":  reflect.TypeOf(true),
+	"TINYINT":  reflect.TypeOf(int8(1)),
+	"SMALLINT": reflect.TypeOf(int16(1)),
+	"INT":      reflect.TypeOf(int32(1)),
+	"BIGINT":   reflect.TypeOf(int64(1)),
+
+	"TINYINT UNSIGNED":  reflect.TypeOf(uint8(1)),
+	"SMALLINT UNSIGNED": reflect.TypeOf(uint16(1)),
+	"INT UNSIGNED":      reflect.TypeOf(uint32(1)),
+	"BIGINT UNSIGNED":   reflect.TypeOf(uint64(1)),
+
+	"DOUBLE": reflect.TypeOf(float64(1)),
+	//"VARCHAR":
 }
 
 // 将一个gotype转换成当前数据库支持的类型，如：
@@ -193,7 +247,7 @@ func (m *mysql) toSQLType(t reflect.Type, l1, l2 int) string {
 		return "SMALLINT"
 	case reflect.Int32:
 		return "INT"
-	case reflect.Int64, reflect.Int:
+	case reflect.Int64, reflect.Int: // reflect.Int大小未知，都当作是BIGINT处理
 		return "BIGINT"
 	case reflect.Uint8:
 		return "TINYINT UNSIGNED"
