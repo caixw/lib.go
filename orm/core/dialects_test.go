@@ -10,59 +10,6 @@ import (
 	"github.com/caixw/lib.go/assert"
 )
 
-// fakeDialect1
-type fakeDialect1 struct {
-}
-
-var _ Dialect = &fakeDialect1{}
-
-func (t *fakeDialect1) GetDBName(dataSource string) string {
-	return ""
-}
-
-func (t *fakeDialect1) QuoteStr() (string, string) {
-	return "[", "]"
-}
-
-func (t *fakeDialect1) CreateTable(db DB, m *Model) error {
-	return nil
-}
-
-func (t *fakeDialect1) LimitSQL(limit, offset int) (string, []interface{}) {
-	return "", nil
-}
-
-func (t *fakeDialect1) SupportLastInsertId() bool {
-	return true
-}
-
-// fakeDialect2
-type fakeDialect2 struct {
-	num int
-}
-
-var _ Dialect = &fakeDialect2{}
-
-func (t *fakeDialect2) GetDBName(dataSource string) string {
-	return ""
-}
-
-func (t *fakeDialect2) QuoteStr() (string, string) {
-	return "{", "}"
-}
-
-func (t *fakeDialect2) CreateTable(db DB, m *Model) error {
-	return nil
-}
-
-func (t *fakeDialect2) LimitSQL(limit, offset int) (string, []interface{}) {
-	return "", nil
-}
-
-func (t *fakeDialect2) SupportLastInsertId() bool {
-	return true
-}
-
 func TestDialect(t *testing.T) {
 	a := assert.New(t)
 

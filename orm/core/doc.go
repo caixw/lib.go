@@ -3,4 +3,5 @@
 // license that can be found in the LICENSE file.
 
 // orm包中的一些前置声明
+// 外键只能是RESTRICT
 package core

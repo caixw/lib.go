@@ -69,11 +69,16 @@ func (e *Engine) ReplaceQuote(sql string) string {
 	return replaceQuoteExpr.ReplaceAllString(sql, left+"$2"+right)
 }
 
-// 替换表名的"table."虚前缀为Engine.prefix。并给表名加上相应的引号，
-// 若表名带双引号，则会将双引号替换成当前Dialect.Quote()所返回的字符。如：
-//  ReplacePrefix("sys_", `"table.user"`, &mysql{}) ==> "`sys_user`"
+// 若table字符串是以tablePrefix指定的值开头的，则将其值替换成
+// Engine.prefix的值，否则原样返回。示例如下：
+//  `table.user`        => prefix_user
+//  `"table.group"`     => `preifx_group`
 func (e *Engine) ReplacePrefix(table string) string {
-	return e.ReplaceQuote(strings.Replace(table, tablePrefix, e.prefix, -1))
+	index := strings.Index(table, tablePrefix)
+	if index == 0 || index == 1 {
+		table = strings.Replace(table, tablePrefix, e.prefix, -1)
+	}
+	return table
 }
 
 func (e *Engine) Dialect() core.Dialect {
@@ -122,7 +127,11 @@ func (e *Engine) Stmt(name string) (*sql.Stmt, bool) {
 
 // 根据obj创建表
 func (e *Engine) Create(obj interface{}) error {
-	return e.Dialect().CreateTable(e, core.NewModel(obj))
+	m, err := core.NewModel(obj)
+	if err != nil {
+		return err
+	}
+	return e.Dialect().CreateTable(e, m)
 }
 
 func (e *Engine) Update() *Update {

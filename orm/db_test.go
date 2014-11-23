@@ -48,4 +48,5 @@ func TestDBReplaceTable(t *testing.T) {
 	a.Equal(e.ReplacePrefix("user.id"), "user.id")
 	a.Equal(e.ReplacePrefix("table_user.id"), "table_user.id")
 	a.Equal(e.ReplacePrefix("table_user.table"), "table_user.table")
+	a.Equal(e.ReplacePrefix(`"table.group"`), `"test_group"`)
 }

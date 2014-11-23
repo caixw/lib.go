@@ -9,7 +9,6 @@ import (
 	"database/sql/driver"
 
 	"github.com/caixw/lib.go/orm/core"
-	_ "github.com/go-sql-driver/mysql"
 )
 
 // 测试用driver.Driver接口实例。

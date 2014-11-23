@@ -16,8 +16,6 @@ import (
 
 type mysql struct{}
 
-var _ core.Dialect = &mysql{}
-
 // implement core.Dialect.GetDBName()
 func (m *mysql) GetDBName(dataSource string) string {
 	index := strings.LastIndex(dataSource, "/")
@@ -53,12 +51,22 @@ func (m *mysql) CreateTable(db core.DB, model *core.Model) error {
 	return m.createTable(db, model)
 }
 
+// 指定的表是否存在
+func (m *mysql) hasTable(db core.DB, tableName string) bool {
+	sql := "SELECT `TABLE_NAME` FROM `INFORMATION_SCHEMA`.`TABLES` WHERE `TABLE_SCHEMA`=? and `TABLE_NAME`=?"
+	rows, err := db.Query(sql, db.Name(), tableName)
+	if err != nil {
+		panic(err)
+	}
+	return rows.Next()
+}
+
 // 创建表
 func (m *mysql) createTable(db core.DB, model *core.Model) error {
 	buf := bytes.NewBufferString("CREATE TABLE IF NOT EXISTS ")
 	buf.Grow(300)
 
-	buf.WriteString(model.Name)
+	buf.WriteString(db.ReplacePrefix(model.Name))
 	buf.WriteByte('(')
 
 	// 写入字段信息
@@ -74,9 +82,9 @@ func (m *mysql) createTable(db core.DB, model *core.Model) error {
 			buf.WriteString(" NOT NULL")
 		}
 
-		if col.DefVal != "" {
+		if col.HasDefault {
 			buf.WriteString(" DEFAULT '")
-			buf.WriteString(col.DefVal)
+			buf.WriteString(col.Default)
 			buf.WriteByte('\'')
 		}
 
@@ -129,22 +137,6 @@ func (m *mysql) createTable(db core.DB, model *core.Model) error {
 		}
 	}
 
-	// ForeignKey
-	if len(model.FK) == 0 {
-		for name, fk := range model.FK {
-			buf.WriteString("CONSTRAINT ")
-			m.quote(buf, name) // 约束名
-			buf.WriteString(" FOREIGN KEY(")
-			m.quote(buf, fk.Col.Name) // 本表字段名
-			buf.WriteString(") REFERENCES ")
-			m.quote(buf, db.ReplacePrefix(fk.TableName)) // 替换表前缀并加引号
-			buf.WriteByte('(')
-			m.quote(buf, fk.ColName)
-			buf.WriteString("),")
-		}
-
-	}
-
 	buf.UnreadByte()   // 去掉最后的逗号
 	buf.WriteByte(')') // end CreateTable
 
@@ -160,6 +152,23 @@ func (m *mysql) createTable(db core.DB, model *core.Model) error {
 
 // 更新表
 func (m *mysql) upgradeTable(db core.DB, model *core.Model) error {
+	model.Name = db.ReplacePrefix(model.Name)
+
+	dbModel := m.getModel(db, model.Name)
+
+	if model.Equal(dbModel) {
+		return nil
+	}
+
+	for modelName, modelCol := range model.Cols {
+		dbModelCol, found := dbModel.Cols[modelName]
+		if found {
+			// upd col
+		}
+		// todo
+	}
+	//todo
+
 	return nil
 }
 
@@ -171,12 +180,13 @@ func (m *mysql) quote(buf *bytes.Buffer, sql string) {
 
 // 将表转换成core.Model
 func (m *mysql) getModel(db core.DB, tableName string) *core.Model {
-	rows, err := db.Query("DESC `" + tableName + "`")
+	sql := "SELECT `COLUMN_NAME`, `IS_NULLABLE`, `COLUMN_DEFAULT`, IF(`COLUMN_DEFAULT` IS NOT NULL,'YES','NO') as HAS_DEFAULT, `COLUMN_TYPE`, `COLUMN_KEY`, `EXTRA` FROM `INFORMATION_SCHEMA`.`COLUMNS` WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
+	rows, err := db.Query(sql, db.Name(), tableName)
 	if err != nil {
 		panic(err)
 	}
 
-	mapped, err := core.Fetch2Maps(false, rows)
+	mapped, err := core.Fetch2MapsString(false, rows)
 	if err != nil {
 		panic(err)
 	}
@@ -185,37 +195,77 @@ func (m *mysql) getModel(db core.DB, tableName string) *core.Model {
 		Cols:          map[string]*core.Column{},
 		KeyIndexes:    map[string][]*core.Column{},
 		UniqueIndexes: map[string][]*core.Column{},
-		FK:            map[string]*core.ForeignKey{},
 		Name:          tableName,
 	}
 
+	// 将列信息导出到model.Cols中
 	for _, c := range mapped {
 		col := &core.Column{
-			Name:     c["Field"].(string),
-			Nullable: c["Null"] == "YES",
-			DefVal:   c["Default"].(string),
-			GoType:   m.getType(c["Type"].(string)),
+			Name:       c["COLUMN_NAME"],
+			Nullable:   c["IS_NULLABLE"] == "YES",
+			HasDefault: c["HAS_DEFAULT"] == "YES",
+			Default:    c["COLUMN_DEFAULT"],
+			GoType:     m.getType(c["COLUMN_TYPE"]),
 		}
 
 		model.Cols[col.Name] = col
 	}
 
+	m.getIndexes(db, model, tableName)
+
 	return model
 }
 
-func (m *mysql) getType(sql string) reflect.Type {
-	//
-	//return typeMap[
-}
-
-// 指定的表是否存在
-func (m *mysql) hasTable(db core.DB, tableName string) bool {
-	sql := "SELECT `TABLE_NAME` FROM `INFORMATION_SCHEMA`.`TABLES` WHERE `TABLE_SCHEMA`=? and `TABLE_NAME`=?"
+// 从数据库导出表的索引信息，保存到model中
+func (m *mysql) getIndexes(db core.DB, model *core.Model, tableName string) {
+	sql := "SELECT `INDEX_NAME`, `NON_UNIQUE`, `COLUMN_NAME` FROM `INFORMATION_SCHEMA`.`STATISTICS`" +
+		" WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
 	rows, err := db.Query(sql, db.Name(), tableName)
 	if err != nil {
 		panic(err)
 	}
-	return rows.Next()
+
+	mapped, err := core.Fetch2MapsString(false, rows)
+	if err != nil {
+		panic(err)
+	}
+
+	for _, index := range mapped {
+		name := index["INDEX_NAME"]
+		col := model.Cols[index["COLUMN_NAME"]]
+
+		if name == "PRIMARY" {
+			model.PK = append(model.PK, col)
+			continue
+		}
+
+		if index["NON_UNIQUE"] != "1" {
+			model.KeyIndexes[name] = append(model.KeyIndexes[name], col)
+		} else {
+			model.UniqueIndexes[name] = append(model.UniqueIndexes[name], col)
+		}
+	}
+}
+
+// 将SQL类型转换成reflect.Type。如：
+//  VARCHAR(255) ==> string
+func (m *mysql) getType(sql string) reflect.Type {
+	sql = strings.ToUpper(sql)
+
+	left := strings.IndexByte(sql, '(')
+	if left < 0 {
+		return mysqlTypeMap[sql]
+	}
+
+	right := strings.IndexByte(sql, ')')
+	if right < 0 {
+		panic(fmt.Sprintf("获取的表结构中关于字段类型描述格式不正确：[%v]", sql))
+	}
+
+	// 去掉中间部分关于长度的描述
+	index := sql[0:left] + sql[right+1:]
+
+	return mysqlTypeMap[index]
 }
 
 var mysqlTypeMap = map[string]reflect.Type{
@@ -231,7 +281,11 @@ var mysqlTypeMap = map[string]reflect.Type{
 	"BIGINT UNSIGNED":   reflect.TypeOf(uint64(1)),
 
 	"DOUBLE": reflect.TypeOf(float64(1)),
-	//"VARCHAR":
+
+	"VARCHAR":  reflect.TypeOf("1"),
+	"LONGTEXT": reflect.TypeOf("1"),
+
+	// datetime
 }
 
 // 将一个gotype转换成当前数据库支持的类型，如：
@@ -242,33 +296,60 @@ func (m *mysql) toSQLType(t reflect.Type, l1, l2 int) string {
 	case reflect.Bool:
 		return "BOOLEAN"
 	case reflect.Int8:
-		return "TINYINT"
+		return m.int2SQLType("TINYINT", l1)
 	case reflect.Int16:
-		return "SMALLINT"
+		return m.int2SQLType("SMALLINT", l1)
 	case reflect.Int32:
-		return "INT"
+		return m.int2SQLType("INT", l1)
 	case reflect.Int64, reflect.Int: // reflect.Int大小未知，都当作是BIGINT处理
-		return "BIGINT"
+		return m.int2SQLType("BIGINT", l1)
 	case reflect.Uint8:
-		return "TINYINT UNSIGNED"
+		return m.uint2SQLType("TINYINT", l1)
 	case reflect.Uint16:
-		return "SMALLINT UNSIGNED"
+		return m.uint2SQLType("SMALLINT", l1)
 	case reflect.Uint32:
-		return "INT UNSIGNED"
+		return m.uint2SQLType("INT", l1)
 	case reflect.Uint64, reflect.Uint, reflect.Uintptr:
-		return "BIGINT UNSIGNED"
+		return m.uint2SQLType("BIGINT", l1)
 	case reflect.Float32, reflect.Float64:
 		return fmt.Sprintf("DOUBLE(%d,%d)", l1, l2)
 	case reflect.String:
 		if l1 < 65533 {
 			return fmt.Sprintf("VARCHAR(%d)", l1)
-		} else {
-			return "LONGTEXT"
 		}
+		return "LONGTEXT"
+	case reflect.Slice, reflect.Array:
+		// 若是数组，则特殊处理[]byte与[]rune两种情况。
+		k := t.Elem().Kind()
+		if (k != reflect.Int8) && (k != reflect.Int32) {
+			panic("不支持数组类型")
+		}
+
+		if l1 < 65533 {
+			return fmt.Sprintf("VARCHAR(%d)", l1)
+		}
+		return "LONGTEXT"
 	case reflect.Struct: // TODO(caixw) time,nullstring等处理
 	default:
+		panic(fmt.Sprintf("不支持的类型:[%v]", t.Name()))
 	}
 	return ""
+}
+
+// 将一个有符号整数名称与长度拼接SQL语句，仅供toSQLType()调用。
+func (m *mysql) int2SQLType(SQLType string, l int) string {
+	if l > 0 {
+		return SQLType + "(" + strconv.Itoa(l) + ")"
+	}
+	return SQLType
+}
+
+// 将一个无符号整数名称与长度拼接SQL语句，仅供toSQLType()调用。
+func (m *mysql) uint2SQLType(SQLType string, l int) string {
+	if l > 0 {
+		return SQLType + "(" + strconv.Itoa(l) + ") UNSIGNED"
+	}
+	return SQLType + " UNSIGNED"
 }
 
 func init() {

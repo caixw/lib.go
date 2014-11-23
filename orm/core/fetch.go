@@ -11,15 +11,22 @@ import (
 	"reflect"
 	"unicode"
 
+	"github.com/caixw/lib.go/conv"
 	"github.com/caixw/lib.go/encoding/tag"
 )
 
 // 将v分解成map[string]reflect.Value形式，其中键名为对象的字段名，
 // 键值为字段的值，支持匿名字段，不会导出不可导出(小写字母开头)的
 // 字段，也不会导出struct tag以-开头的字段。
-//
-// 假定v.Kind()==reflect.Struct，不再进行判断
-func parseObj(v reflect.Value, ret *map[string]reflect.Value) {
+func parseObj(v reflect.Value, ret *map[string]reflect.Value) error {
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+
+	if v.Kind() != reflect.Struct {
+		return fmt.Errorf("v参数的类型只能是reflect.Struct或是struct的指针,当前为[%v]", v.Kind())
+	}
+
 	vt := v.Type()
 	num := vt.NumField()
 	for i := 0; i < num; i++ {
@@ -50,6 +57,7 @@ func parseObj(v reflect.Value, ret *map[string]reflect.Value) {
 		}
 		(*ret)[name[0]] = v.Field(i)
 	} // end for
+	return nil
 }
 
 // 将rows中的数据导出到obj中，obj可以是map、struct或是与之对应的数组。
@@ -63,9 +71,12 @@ func Fetch2Objs(obj interface{}, rows *sql.Rows) (err error) {
 	switch val.Kind() {
 	case reflect.Slice: // 导出到一组struct对象数组中
 		itemType := val.Type().Elem()
+		if itemType.Kind() == reflect.Ptr {
+			itemType = itemType.Elem()
+		}
 		// 判断数组元素的类型是否为struct
 		if itemType.Kind() != reflect.Struct {
-			return fmt.Errorf("元素类型只能为reflect.Struct，当前为[%v]", itemType.Kind())
+			return fmt.Errorf("元素类型只能为reflect.Struct或是struct指针，当前为[%v]", itemType.Kind())
 		}
 
 		// 先导出数据到map中
@@ -82,13 +93,18 @@ func Fetch2Objs(obj interface{}, rows *sql.Rows) (err error) {
 
 		for i := 0; i < len(mapped); i++ {
 			objItem := make(map[string]reflect.Value, 0)
-			parseObj(val.Index(i), &objItem)
-			for index, item := range objItem {
-				if v, found := mapped[i][index]; found {
-					item.Set(reflect.ValueOf(v))
-				}
+			if err = parseObj(val.Index(i), &objItem); err != nil {
+				return err
 			}
-
+			for index, item := range objItem {
+				v, found := mapped[i][index]
+				if !found {
+					continue
+				}
+				if err = conv.To(v, item); err != nil {
+					return err
+				}
+			} // end for objItem
 		}
 	case reflect.Struct: // 导出到一个struct对象中
 		mapped, err = Fetch2Maps(true, rows)
@@ -96,10 +112,16 @@ func Fetch2Objs(obj interface{}, rows *sql.Rows) (err error) {
 			return err
 		}
 		objItem := make(map[string]reflect.Value, 0)
-		parseObj(val, &objItem)
+		if err = parseObj(val, &objItem); err != nil {
+			return err
+		}
 		for index, item := range objItem {
-			if v, found := mapped[0][index]; found {
-				item.Set(reflect.ValueOf(v))
+			v, found := mapped[0][index]
+			if !found {
+				continue
+			}
+			if err = conv.To(v, item); err != nil {
+				return err
 			}
 		}
 
@@ -110,11 +132,9 @@ func Fetch2Objs(obj interface{}, rows *sql.Rows) (err error) {
 	return nil
 }
 
-// 将rows中的数据导出到map中
+// 将rows中的数据导出到map[string]interface{}中。
 //
 // once 是否只查询一条记录，若为true，则返回长度为1的slice
-// rows 查询的结果
-// 对外公开，方便db包调用
 func Fetch2Maps(once bool, rows *sql.Rows) ([]map[string]interface{}, error) {
 	cols, err := rows.Columns()
 	if err != nil {
@@ -152,6 +172,40 @@ func Fetch2Maps(once bool, rows *sql.Rows) ([]map[string]interface{}, error) {
 	return data, nil
 }
 
+// 将rows中的数据导出到一个map[string]string中。
+// 功能上与Fetch2Maps()上一样，但是对于一些确定字段值为String的，
+// 使用些方法会方便一些。
+func Fetch2MapsString(once bool, rows *sql.Rows) (data []map[string]string, err error) {
+	cols, err := rows.Columns()
+	if err != nil {
+		return nil, err
+	}
+
+	buf := make([]interface{}, len(cols))
+	for k, _ := range buf {
+		var val string
+		buf[k] = &val
+	}
+
+	for rows.Next() {
+		if err = rows.Scan(buf...); err != nil {
+			return nil, err
+		}
+
+		line := make(map[string]string, len(cols))
+		for i, v := range cols {
+			line[v] = *(buf[i].(*string))
+		}
+
+		data = append(data, line)
+
+		if once {
+			return data, nil
+		}
+	}
+	return data, nil
+}
+
 // 导出某列的所有数据
 //
 // colName 该列的名称，若不指定了不存在的名称，返回error
@@ -181,7 +235,45 @@ func FetchColumns(once bool, colName string, rows *sql.Rows) ([]interface{}, err
 		if err := rows.Scan(buff...); err != nil {
 			return nil, err
 		}
-		data = append(data, buff[index])
+		value := reflect.Indirect(reflect.ValueOf(buff[index]))
+		data = append(data, value.Interface())
+		if once {
+			return data, nil
+		}
+	}
+
+	return data, nil
+}
+
+// 导出某列的所有数据
+func FetchColumnsString(once bool, colName string, rows *sql.Rows) ([]string, error) {
+	cols, err := rows.Columns()
+	if err != nil {
+		return nil, err
+	}
+
+	index := -1 // 该列名在所rows.Columns()中的索引号
+	buff := make([]interface{}, len(cols))
+	for i, v := range cols {
+		var value string
+		buff[i] = &value
+
+		if colName == v { // 获取index的值
+			index = i
+		}
+		// TODO(caixw) 用不到的列，直接赋值为nil，性能上会不会有所提升?
+	}
+
+	if index == -1 {
+		return nil, fmt.Errorf("指定的名[%v]不存在", colName)
+	}
+
+	var data []string
+	for rows.Next() {
+		if err := rows.Scan(buff...); err != nil {
+			return nil, err
+		}
+		data = append(data, *(buff[index].(*string)))
 		if once {
 			return data, nil
 		}

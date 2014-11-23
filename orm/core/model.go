@@ -23,32 +23,21 @@ type Metaer interface {
 	Meta() string
 }
 
-const (
-	structTag = "orm" // 在struct tag中的表示名称。
-)
-
 // Model 从struct tag中初始化的数据表模型。
 type Model struct {
 	Name string
 
-	Cols          map[string]*Column     // 所有的列
-	KeyIndexes    map[string][]*Column   // 索引列
-	UniqueIndexes map[string][]*Column   // 唯一索引列
-	FK            map[string]*ForeignKey // 外键
-	PK            []*Column              // 主键
-	AI            *AutoIncr              // 自增列
+	Cols          map[string]*Column   // 所有的列
+	KeyIndexes    map[string][]*Column // 索引列
+	UniqueIndexes map[string][]*Column // 唯一索引列
+	PK            []*Column            // 主键
+	AI            *AutoIncr            // 自增列
 }
 
 // 自增列
 type AutoIncr struct {
 	Col         *Column
 	Start, Step int // 起始和步长
-}
-
-// 外键
-type ForeignKey struct {
-	Col                *Column // 当前表中的字符
-	TableName, ColName string  // 关联的表和字符
 }
 
 // 列结构
@@ -60,7 +49,47 @@ type Column struct {
 	Len2     int
 	Nullable bool         // 是否可以为NULL
 	GoType   reflect.Type // Go语言中的数据类型
-	DefVal   string       // 默认值
+
+	HasDefault bool
+	Default    string // 默认值
+}
+
+// 比较两个AutoIncr是否相等，供model.Equal()调用。
+func (ai *AutoIncr) Equal(a *AutoIncr) bool {
+	if ai == a {
+		return true
+	}
+
+	return ai.Start == a.Start &&
+		ai.Step == a.Step &&
+		ai.Col.Equal(a.Col)
+}
+
+// 判断col是否与当前的Column相等，需要各个字符都相等。
+// 供model.Equal()调用。
+func (c *Column) Equal(col *Column) bool {
+	if c == col { // 同一元素
+		return true
+	}
+
+	if (c == nil && col != nil) || (c != nil && col == nil) {
+		return false
+	}
+
+	if c.HasDefault != col.HasDefault {
+		return false
+	}
+	// 只在HasDefault为true的时候，才考虑default是否相等。
+	if c.HasDefault && c.Default != col.Default {
+		return false
+	}
+
+	// 不考虑c.model == col.model的情况
+	return c.Nullable == col.Nullable &&
+		c.Name == col.Name &&
+		c.Len1 == col.Len1 &&
+		c.Len2 == col.Len2 &&
+		c.GoType == col.GoType
 }
 
 // 当前列是否为自增列
@@ -98,7 +127,6 @@ func NewModel(obj interface{}) (*Model, error) {
 		Cols:          map[string]*Column{},
 		KeyIndexes:    map[string][]*Column{},
 		UniqueIndexes: map[string][]*Column{},
-		FK:            map[string]*ForeignKey{},
 		Name:          rtype.Name(),
 	}
 
@@ -129,6 +157,52 @@ func NewModel(obj interface{}) (*Model, error) {
 	return m, nil
 }
 
+// 判断是否与另一个Model相等。
+func (m *Model) Equal(model *Model) bool {
+	if m == model { // 同一元素
+		return true
+	}
+
+	result := m.AI == model.AI &&
+		m.Name == model.Name &&
+		len(m.Cols) == len(model.Cols) &&
+		len(m.KeyIndexes) == len(model.KeyIndexes) &&
+		len(m.UniqueIndexes) == len(model.UniqueIndexes) &&
+		ColumnsEqual(m.PK, model.PK)
+
+	if !result {
+		return false
+	}
+
+	for name, cols := range m.Cols {
+		if cols != model.Cols[name] {
+			return false
+		}
+	}
+
+	for name, cols := range m.KeyIndexes {
+		cols2, found := model.KeyIndexes[name]
+		if !found { // 未找到同外索引
+			return false
+		}
+		if !ColumnsEqual(cols, cols2) {
+			return false
+		}
+	}
+
+	for name, cols := range m.UniqueIndexes {
+		cols2, found := model.UniqueIndexes[name]
+		if !found { // 未找到同外索引
+			return false
+		}
+		if !ColumnsEqual(cols, cols2) {
+			return false
+		}
+	}
+
+	return true
+}
+
 // 分析一个字段。
 func (m *Model) parseColumn(field reflect.StructField) error {
 	// 直接忽略以小写字母开头的字段
@@ -136,7 +210,7 @@ func (m *Model) parseColumn(field reflect.StructField) error {
 		return nil
 	}
 
-	tagTxt := field.Tag.Get(structTag)
+	tagTxt := field.Tag.Get("orm")
 
 	// 没有附加的struct tag，直接取得几个关键信息返回。
 	if len(tagTxt) == 0 {
@@ -165,8 +239,6 @@ func (m *Model) parseColumn(field reflect.StructField) error {
 			m.PK = append(m.PK, col)
 		case "unique":
 			m.UniqueIndexes[v[0]] = append(m.UniqueIndexes[v[0]], col)
-		case "fk":
-			m.FK[v[0]] = &ForeignKey{Col: col, ColName: v[2], TableName: v[1]}
 		case "nullable":
 			if col.IsAI() {
 				panic(fmt.Sprintf("自增列[%v]不能为nullable", col.Name))
@@ -191,7 +263,8 @@ func (m *Model) parseColumn(field reflect.StructField) error {
 				return err
 			}
 		case "default":
-			col.DefVal = v[0]
+			col.HasDefault = true
+			col.Default = v[0]
 		default:
 		}
 	}
@@ -222,4 +295,28 @@ func (m *Model) setAI(col *Column, vals []string) (err error) {
 	}
 
 	return
+}
+
+// 比较两个*Column组成的数组元素是否都相同。
+func ColumnsEqual(v1, v2 []*Column) bool {
+	if len(v1) != len(v2) {
+		return false
+	}
+
+	// 判断v是否存在于v2中。
+	findInV2 := func(v *Column) bool {
+		for _, col := range v2 {
+			if col.Equal(v) {
+				return true
+			}
+		}
+		return false
+	}
+
+	for _, v1Col := range v1 {
+		if !findInV2(v1Col) {
+			return false
+		}
+	}
+	return true
 }

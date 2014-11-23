@@ -9,7 +9,6 @@ import (
 	"database/sql/driver"
 
 	"github.com/caixw/lib.go/orm/core"
-	_ "github.com/go-sql-driver/mysql"
 )
 
 // fakeDb1 测试有的driver.Driver接口实例，并未真实实现。

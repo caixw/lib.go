@@ -7,7 +7,6 @@
 package core
 
 import (
-	"database/sql"
 	"testing"
 
 	"github.com/caixw/lib.go/assert"
@@ -17,8 +16,7 @@ import (
 func TestStmtsAddSet(t *testing.T) {
 	a := assert.New(t)
 
-	db := newFakeDB()
-	a.NotNil(db)
+	db := &fakeDB{}
 
 	s := NewStmts(db)
 	a.NotNil(s)
@@ -72,10 +70,7 @@ func TestStmtsAddSet(t *testing.T) {
 func TestStmtsAddSetSQL(t *testing.T) {
 	a := assert.New(t)
 
-	db := newFakeDB()
-	a.NotNil(db)
-
-	s := NewStmts(db)
+	s := NewStmts(&fakeDB{})
 	a.NotNil(s)
 
 	sql := "SELECT * FROM user WHERE 1"
@@ -138,54 +133,4 @@ func TestStmtsAddSetSQL(t *testing.T) {
 
 	s.Free()
 	a.Nil(s.items)
-}
-
-type fakeDB struct {
-	db *sql.DB
-}
-
-func newFakeDB() *fakeDB {
-	d, err := sql.Open("mysql", "root:@/mysql")
-	if err != nil {
-		panic(err)
-	}
-
-	return &fakeDB{db: d}
-}
-
-func (f *fakeDB) Name() string {
-	return ""
-}
-
-// stmts仅用到了Prepare接口函数
-func (f *fakeDB) Prepare(str string) (*sql.Stmt, error) {
-	return f.db.Prepare(str)
-}
-
-func (f *fakeDB) GetStmts() *Stmts {
-	return nil
-}
-
-func (f *fakeDB) ReplaceQuote(cols string) string {
-	return ""
-}
-
-func (f *fakeDB) ReplacePrefix(cols string) string {
-	return ""
-}
-
-func (f *fakeDB) Dialect() Dialect {
-	return nil
-}
-
-func (f *fakeDB) Exec(sql string, args ...interface{}) (sql.Result, error) {
-	return nil, nil
-}
-
-func (f *fakeDB) Query(sql string, args ...interface{}) (*sql.Rows, error) {
-	return nil, nil
-}
-
-func (f *fakeDB) QueryRow(sql string, args ...interface{}) *sql.Row {
-	return nil
 }

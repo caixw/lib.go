@@ -178,11 +178,6 @@ type Insert struct {
 	vals  []interface{}
 }
 
-var _ SQLStringer = &Insert{}
-var _ Execer = &Insert{}
-var _ Stmter = &Insert{}
-var _ Reseter = &Insert{}
-
 func newInsert(d core.DB) *Insert {
 	ret := &Insert{
 		db:   d,
@@ -198,8 +193,8 @@ func newInsert(d core.DB) *Insert {
 func (i *Insert) Reset() {
 	i.q.Reset()
 	i.table = ""
-	i.cols = i.cols[0:0]
-	i.vals = i.vals[0:0]
+	i.cols = i.cols[:0]
+	i.vals = i.vals[:0]
 }
 
 // 指定操作的表名。
@@ -235,12 +230,12 @@ func (i *Insert) Data(data map[string]interface{}) *Insert {
 }
 
 // 返回SQL语句。
-func (i *Insert) SQLString(rebuild bool) string {
+func (i *Insert) sqlString(rebuild bool) string {
 	if rebuild || i.q.Len() == 0 {
 		i.q.Reset() // 清空之前的内容
 
 		i.q.WriteString("INSERT INTO ")
-		i.q.WriteString(i.table)
+		i.q.WriteString(i.db.ReplaceQuote(i.table))
 		i.q.WriteByte('(')
 
 		// 替换列名中的引号
@@ -270,7 +265,7 @@ func (i *Insert) Exec(args ...interface{}) (sql.Result, error) {
 		args = i.vals
 	}
 
-	return i.db.Exec(i.SQLString(false), args...)
+	return i.db.Exec(i.sqlString(false), args...)
 }
 
 // 用于产生sql的update语句。
@@ -293,11 +288,6 @@ type Update struct {
 	cols  []string
 	vals  []interface{}
 }
-
-var _ SQLStringer = &Update{}
-var _ Execer = &Update{}
-var _ Stmter = &Update{}
-var _ Reseter = &Update{}
 
 func newUpdate(d core.DB) *Update {
 	return &Update{
@@ -345,12 +335,12 @@ func (u *Update) Set(col string, val interface{}) *Update {
 	return u
 }
 
-func (u *Update) SQLString(rebuild bool) string {
+func (u *Update) sqlString(rebuild bool) string {
 	if rebuild {
 		u.q.Reset()
 
 		u.q.WriteString("UPDATE ")
-		u.q.WriteString(u.table)
+		u.q.WriteString(u.db.ReplaceQuote((u.table)))
 		u.q.WriteString(" SET ")
 		for _, v := range u.cols {
 			u.q.WriteString(u.db.ReplaceQuote(v))
@@ -374,7 +364,7 @@ func (u *Update) Exec(args ...interface{}) (sql.Result, error) {
 		args = append(u.vals, u.whereExpr.condArgs)
 	}
 
-	return u.db.Exec(u.SQLString(false), args...)
+	return u.db.Exec(u.sqlString(false), args...)
 }
 
 // sql的delete语句
@@ -390,11 +380,6 @@ type Delete struct {
 	table string
 	q     *bytes.Buffer
 }
-
-var _ SQLStringer = &Delete{}
-var _ Execer = &Delete{}
-var _ Stmter = &Delete{}
-var _ Reseter = &Delete{}
 
 func newDelete(d core.DB) *Delete {
 	return &Delete{
@@ -419,12 +404,12 @@ func (d *Delete) Table(name string) *Delete {
 	return d
 }
 
-func (d *Delete) SQLString(rebuild bool) string {
+func (d *Delete) sqlString(rebuild bool) string {
 	if rebuild || d.q.Len() == 0 {
 		d.q.Reset()
 
 		d.q.WriteString("DELETE FROM ")
-		d.q.WriteString(d.table)
+		d.q.WriteString(d.db.ReplaceQuote(d.table))
 
 		// where
 		d.q.WriteString(d.condString(d.db))
@@ -442,7 +427,7 @@ func (d *Delete) Exec(args ...interface{}) (sql.Result, error) {
 		args = d.condArgs
 	}
 
-	return d.db.Exec(d.SQLString(false), args...)
+	return d.db.Exec(d.sqlString(false), args...)
 }
 
 // Select
@@ -467,11 +452,6 @@ type Select struct {
 	limitSQL  string
 	limitArgs []interface{}
 }
-
-var _ SQLStringer = &Select{}
-var _ Stmter = &Select{}
-var _ Reseter = &Select{}
-var _ Fetch = &Select{}
 
 func newSelect(d core.DB) *Select {
 	return &Select{
@@ -524,7 +504,7 @@ var joinType = []string{" LEFT JOIN ", " RIGHT JOIN ", " INNER JOIN ", " FULL JO
 // typ join的类型： 0 LEFT JOIN; 1 RIGHT JOIN; 2 INNER JOIN; 3 FULL JOIN
 func (s *Select) joinOn(typ int, table string, on string) *Select {
 	s.join.WriteString(joinType[typ])
-	s.join.WriteString(s.db.ReplacePrefix(table))
+	s.join.WriteString(s.db.ReplaceQuote(s.db.ReplacePrefix(table)))
 	s.join.WriteString(" ON ")
 	s.join.WriteString(on)
 
@@ -618,9 +598,9 @@ func (s *Select) Page(start, size int) *Select {
 }
 
 // 将当前实例转换成SQL，所有的变量都以？代替。
-// rebuild是否重新产生SQL，一般情况下，只有在调用SQLString()方法之后，
-// 如果再修改了内容，需要再次调用SQLString()方法，并传递true值。
-func (s *Select) SQLString(rebuild bool) string {
+// rebuild是否重新产生SQL，一般情况下，只有在调用sqlString()方法之后，
+// 如果再修改了内容，需要再次调用sqlString()方法，并传递true值。
+func (s *Select) sqlString(rebuild bool) string {
 	if rebuild || s.q.Len() == 0 {
 		s.q.Reset()
 
@@ -628,7 +608,7 @@ func (s *Select) SQLString(rebuild bool) string {
 		cols := s.db.ReplaceQuote(strings.Join(s.cols, ","))
 		s.q.WriteString(cols)
 		s.q.WriteString(" FROM ")
-		s.q.WriteString(s.table)
+		s.q.WriteString(s.db.ReplaceQuote(s.table))
 		s.q.WriteString(s.join.String())
 		s.q.WriteString(s.condString(s.db)) // where
 		s.q.WriteString(s.order.String())   // NOTE(caixw):mysql中若要limit，order字段是必须提供的
@@ -646,21 +626,21 @@ func (s *Select) Stmt(name string) (*sql.Stmt, error) {
 // implement Fetch.Query()
 func (s *Select) Query(args ...interface{}) (*sql.Rows, error) {
 	if len(args) == 0 {
-		// 与SQLString中添加的顺序相同，where在limit之前
+		// 与sqlString中添加的顺序相同，where在limit之前
 		args = append(s.condArgs, s.limitArgs)
 	}
 
-	return s.db.Query(s.SQLString(false), args...)
+	return s.db.Query(s.sqlString(false), args...)
 }
 
 // implement Fetch.QueryRow()
 func (s *Select) QueryRow(args ...interface{}) *sql.Row {
 	if len(args) == 0 {
-		// 与SQLString中添加的顺序相同，where在limit之前
+		// 与sqlString中添加的顺序相同，where在limit之前
 		args = append(s.condArgs, s.limitArgs)
 	}
 
-	return s.db.QueryRow(s.SQLString(false), args...)
+	return s.db.QueryRow(s.sqlString(false), args...)
 }
 
 // implement Fetch.Fetch2Map()

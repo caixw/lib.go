@@ -16,6 +16,7 @@ func oracleLimitSQL(limit, offset int) (string, []interface{}) {
 	return " OFFSET ? ROWS FETCH NEXT ? ROWS ONLY ", []interface{}{offset, limit}
 }
 
+// 判定item的值在slice中
 func inSlice(slice []interface{}, item interface{}) bool {
 	for _, v := range slice {
 		if item == v {
