@@ -27,11 +27,20 @@ type Metaer interface {
 type Model struct {
 	Name string
 
-	Cols          map[string]*Column   // 所有的列
-	KeyIndexes    map[string][]*Column // 索引列
-	UniqueIndexes map[string][]*Column // 唯一索引列
-	PK            []*Column            // 主键
-	AI            *AutoIncr            // 自增列
+	Cols          map[string]*Column     // 所有的列
+	KeyIndexes    map[string][]*Column   // 索引列
+	UniqueIndexes map[string][]*Column   // 唯一索引列
+	FK            map[string]*ForeignKey // 外键
+	PK            []*Column              // 主键
+	AI            *AutoIncr              // 自增列
+	Check         map[string]string
+}
+
+// 外键
+type ForeignKey struct {
+	Col                      *Column
+	RefTableName, RefColName string
+	UpdateRule, DeleteRule   string
 }
 
 // 自增列
@@ -52,44 +61,6 @@ type Column struct {
 
 	HasDefault bool
 	Default    string // 默认值
-}
-
-// 比较两个AutoIncr是否相等，供model.Equal()调用。
-func (ai *AutoIncr) Equal(a *AutoIncr) bool {
-	if ai == a {
-		return true
-	}
-
-	return ai.Start == a.Start &&
-		ai.Step == a.Step &&
-		ai.Col.Equal(a.Col)
-}
-
-// 判断col是否与当前的Column相等，需要各个字符都相等。
-// 供model.Equal()调用。
-func (c *Column) Equal(col *Column) bool {
-	if c == col { // 同一元素
-		return true
-	}
-
-	if (c == nil && col != nil) || (c != nil && col == nil) {
-		return false
-	}
-
-	if c.HasDefault != col.HasDefault {
-		return false
-	}
-	// 只在HasDefault为true的时候，才考虑default是否相等。
-	if c.HasDefault && c.Default != col.Default {
-		return false
-	}
-
-	// 不考虑c.model == col.model的情况
-	return c.Nullable == col.Nullable &&
-		c.Name == col.Name &&
-		c.Len1 == col.Len1 &&
-		c.Len2 == col.Len2 &&
-		c.GoType == col.GoType
 }
 
 // 当前列是否为自增列
@@ -128,6 +99,8 @@ func NewModel(obj interface{}) (*Model, error) {
 		KeyIndexes:    map[string][]*Column{},
 		UniqueIndexes: map[string][]*Column{},
 		Name:          rtype.Name(),
+		FK:            map[string]*ForeignKey{},
+		Check:         map[string]string{},
 	}
 
 	num := rtype.NumField()
@@ -150,57 +123,13 @@ func NewModel(obj interface{}) (*Model, error) {
 		switch k {
 		case "name":
 			m.Name = v[0]
+		case "check":
+			m.Check[v[0]] = v[1]
 		default:
 		}
 	}
 
 	return m, nil
-}
-
-// 判断是否与另一个Model相等。
-func (m *Model) Equal(model *Model) bool {
-	if m == model { // 同一元素
-		return true
-	}
-
-	result := m.AI == model.AI &&
-		m.Name == model.Name &&
-		len(m.Cols) == len(model.Cols) &&
-		len(m.KeyIndexes) == len(model.KeyIndexes) &&
-		len(m.UniqueIndexes) == len(model.UniqueIndexes) &&
-		ColumnsEqual(m.PK, model.PK)
-
-	if !result {
-		return false
-	}
-
-	for name, cols := range m.Cols {
-		if cols != model.Cols[name] {
-			return false
-		}
-	}
-
-	for name, cols := range m.KeyIndexes {
-		cols2, found := model.KeyIndexes[name]
-		if !found { // 未找到同外索引
-			return false
-		}
-		if !ColumnsEqual(cols, cols2) {
-			return false
-		}
-	}
-
-	for name, cols := range m.UniqueIndexes {
-		cols2, found := model.UniqueIndexes[name]
-		if !found { // 未找到同外索引
-			return false
-		}
-		if !ColumnsEqual(cols, cols2) {
-			return false
-		}
-	}
-
-	return true
 }
 
 // 分析一个字段。
@@ -229,17 +158,22 @@ func (m *Model) parseColumn(field reflect.StructField) error {
 	for k, v := range tags {
 		switch k {
 		case "name":
+			// name(colname)
 			col.Name = v[0]
 		case "index":
+			// index(idx_name)
 			m.KeyIndexes[v[0]] = append(m.KeyIndexes[v[0]], col)
 		case "pk":
+			// pk; or pk(true)
 			if m.AI != nil { // 若存在自增列，则不理其它主键设置
 				continue
 			}
 			m.PK = append(m.PK, col)
 		case "unique":
+			// unique(unique_name)
 			m.UniqueIndexes[v[0]] = append(m.UniqueIndexes[v[0]], col)
 		case "nullable":
+			// nullable; or nullable(true);
 			if col.IsAI() {
 				panic(fmt.Sprintf("自增列[%v]不能为nullable", col.Name))
 			}
@@ -250,6 +184,7 @@ func (m *Model) parseColumn(field reflect.StructField) error {
 				col.Nullable = conv.MustBool(v[0], false)
 			}
 		case "ai":
+			// ai(colName,start,step)
 			if col.Nullable {
 				panic(fmt.Sprintf("自增列[%v]不能为nullable", col.Name))
 			}
@@ -259,10 +194,18 @@ func (m *Model) parseColumn(field reflect.StructField) error {
 
 			m.PK = append(m.PK[:0], col) // 则去掉其它主键，将自增列设置为主键
 		case "len":
+			// len(len1,len2)
 			if err := col.setLen(v); err != nil {
 				return err
 			}
+
+		case "fk":
+			// fk(fk_name,colName,refTable,refColName,updateRule,deleteRule)
+			if err := m.setFK(col, v); err != nil {
+				return err
+			}
 		case "default":
+			// default(5)
 			col.HasDefault = true
 			col.Default = v[0]
 		default:
@@ -270,6 +213,29 @@ func (m *Model) parseColumn(field reflect.StructField) error {
 	}
 	m.Cols[col.Name] = col
 
+	return nil
+}
+
+func (m *Model) setFK(col *Column, vals []string) error {
+	// fk(fk_name,refTable,refColName,updateRule,deleteRule)
+	if len(vals) < 3 {
+		return errors.New("fk参数必须大于3个")
+	}
+
+	fk := &ForeignKey{
+		Col:          col,
+		RefTableName: vals[1],
+		RefColName:   vals[2],
+	}
+
+	if len(vals) > 3 { // 存在updateRule
+		fk.UpdateRule = vals[3]
+	}
+	if len(vals) > 4 { // 存在deleteRule
+		fk.DeleteRule = vals[4]
+	}
+
+	m.FK[vals[0]] = fk
 	return nil
 }
 
@@ -295,28 +261,4 @@ func (m *Model) setAI(col *Column, vals []string) (err error) {
 	}
 
 	return
-}
-
-// 比较两个*Column组成的数组元素是否都相同。
-func ColumnsEqual(v1, v2 []*Column) bool {
-	if len(v1) != len(v2) {
-		return false
-	}
-
-	// 判断v是否存在于v2中。
-	findInV2 := func(v *Column) bool {
-		for _, col := range v2 {
-			if col.Equal(v) {
-				return true
-			}
-		}
-		return false
-	}
-
-	for _, v1Col := range v1 {
-		if !findInV2(v1Col) {
-			return false
-		}
-	}
-	return true
 }

@@ -5,7 +5,6 @@
 package internal
 
 import (
-	"bytes"
 	"os"
 	"strings"
 
@@ -48,11 +47,11 @@ func (s *sqlite3) CreateTable(db core.DB, m *core.Model) error {
 }
 
 func (s *sqlite3) createTable(db core.DB, m *core.Model) error {
-
+	return nil
 }
 
 func (s *sqlite3) upgradeTable(db core.DB, m *core.Model) error {
-
+	return nil
 }
 
 func (s *sqlite3) hasTable(db core.DB, tableName string) bool {
