@@ -10,10 +10,10 @@ import (
 
 // 通用但又没有统一标准的数据库功能接口。
 //
-// 有可能一个Dialect实例会被多个其它实例引用，不应该
-// 在Dialect实例中保存状态值等内容。
+// 有可能一个Dialect实例会被多个其它实例引用，
+// 不应该在Dialect实例中保存状态值等内容。
 type Dialect interface {
-	// 对字段或是表名的引用符号
+	// 对字段或是表名的引用字符
 	QuoteStr() (left, right string)
 
 	// 是否支持返回LastInsertId()特性

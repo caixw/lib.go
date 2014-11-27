@@ -17,6 +17,7 @@ type Stmts struct {
 	db    DB
 }
 
+// 获得一个Stmts实例。
 func NewStmts(d DB) *Stmts {
 	return &Stmts{
 		items: map[string]*sql.Stmt{},
@@ -24,6 +25,8 @@ func NewStmts(d DB) *Stmts {
 	}
 }
 
+// 编译SQL语句成sql.Stmt，并以name为名称缓存。
+// 若该name的缓存已经存在，则返回一个错误信息。
 func (s *Stmts) AddSQL(name, sql string) (*sql.Stmt, error) {
 	s.Lock()
 	defer s.Unlock()
@@ -41,6 +44,9 @@ func (s *Stmts) AddSQL(name, sql string) (*sql.Stmt, error) {
 	return stmt, nil
 }
 
+// 修改或是添加一条SQL语句的缓存。
+// 功能上大致与AddSQL()相同，只是在相同名称已经的sql.Stmt实例
+// 已经存在的情况下，AddSQL()返回错误，而SetSQL()则是替换。
 func (s *Stmts) SetSQL(name, sql string) (*sql.Stmt, error) {
 	stmt, err := s.db.Prepare(sql)
 	if err != nil {
@@ -88,6 +94,8 @@ func (s *Stmts) Clear() {
 }
 
 // 释放所有缓存空间。
-func (s *Stmts) Free() {
+// 与Clear()的区别在于：Close()之后，不能再次通过AddSQL()
+// 等函数添加新的缓存内容。
+func (s *Stmts) Close() {
 	s.items = nil
 }

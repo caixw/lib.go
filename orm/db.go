@@ -103,7 +103,7 @@ func (e *Engine) Prepare(sql string) (*sql.Stmt, error) {
 
 // 关闭当前的db，销毁所有的数据。不能再次使用。
 func (e *Engine) close() {
-	e.stmts.Free()
+	e.stmts.Close()
 	e.db.Close()
 }
 

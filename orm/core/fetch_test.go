@@ -54,6 +54,7 @@ func TestParseObj(t *testing.T) {
 	a.Equal(1, obj.Group)
 }
 
+// 初始化一个sql.DB(sqlite3)，方便后面的测试用例使用。
 func initDB(a *assert.Assertion) *sql.DB {
 	db, err := sql.Open("sqlite3", "./test.db")
 	a.NotError(err).NotNil(db)
@@ -84,6 +85,7 @@ func initDB(a *assert.Assertion) *sql.DB {
 	return db
 }
 
+// 关闭sql.DB(sqlite3)的数据库连结。
 func closeDB(db *sql.DB, a *assert.Assertion) {
 	db.Close()
 	a.NotError(os.Remove("./test.db"))
@@ -96,18 +98,48 @@ func TestFetch2Objs(t *testing.T) {
 	defer closeDB(db, a)
 
 	sql := `SELECT id,Email FROM user WHERE id<2 ORDER BY id`
+
+	// test1:objs的长度与导出的数据长度相等
 	rows, err := db.Query(sql)
 	a.NotError(err).NotNil(rows)
+
 	objs := []*FetchUser{
 		&FetchUser{},
 		&FetchUser{},
 	}
 
-	a.NotError(Fetch2Objs(objs, rows))
+	a.NotError(Fetch2Objs(&objs, rows))
 
 	a.Equal([]*FetchUser{
 		&FetchUser{Id: 0, Email: "email-0"},
 		&FetchUser{Id: 1, Email: "email-1"},
+	}, objs)
+
+	// test2:objs的长度小于导出数据的长度，objs应该自动增加长度。
+	rows, err = db.Query(sql)
+	a.NotError(err).NotNil(rows)
+	objs = []*FetchUser{
+		&FetchUser{},
+	}
+	a.NotError(Fetch2Objs(&objs, rows))
+	a.Equal(len(objs), 2)
+	a.Equal([]*FetchUser{
+		&FetchUser{Id: 0, Email: "email-0"},
+		&FetchUser{Id: 1, Email: "email-1"},
+	}, objs)
+
+	// test3:objs的长度大于导出数据的长度。
+	rows, err = db.Query(sql)
+	objs = []*FetchUser{
+		&FetchUser{},
+		&FetchUser{},
+		&FetchUser{},
+	}
+	a.NotError(Fetch2Objs(&objs, rows))
+	a.Equal([]*FetchUser{
+		&FetchUser{Id: 0, Email: "email-0"},
+		&FetchUser{Id: 1, Email: "email-1"},
+		&FetchUser{},
 	}, objs)
 }
 

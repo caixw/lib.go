@@ -60,75 +60,152 @@ func parseObj(v reflect.Value, ret *map[string]reflect.Value) error {
 	return nil
 }
 
-// 将rows中的数据导出到obj中。obj可以是struct或是struct组成的数组。
-func Fetch2Objs(obj interface{}, rows *sql.Rows) (err error) {
-	val := reflect.ValueOf(obj)
-	if val.Kind() == reflect.Ptr {
-		val = val.Elem()
+// 将rows中的一条记录写入到val中，必须保证val的类型为reflect.Struct。
+// 仅供Fetch2Objs调用。
+func fetchOnceObj(val reflect.Value, rows *sql.Rows) error {
+	mapped, err := Fetch2Maps(true, rows)
+	if err != nil {
+		return err
 	}
 
-	var mapped []map[string]interface{}
-	switch val.Kind() {
-	case reflect.Slice: // 导出到一组struct对象数组中
-		itemType := val.Type().Elem()
-		if itemType.Kind() == reflect.Ptr {
-			itemType = itemType.Elem()
-		}
-		// 判断数组元素的类型是否为struct
-		if itemType.Kind() != reflect.Struct {
-			return fmt.Errorf("元素类型只能为reflect.Struct或是struct指针，当前为[%v]", itemType.Kind())
-		}
+	objItem := make(map[string]reflect.Value, 0)
+	if err = parseObj(val, &objItem); err != nil {
+		return err
+	}
 
-		// 先导出数据到map中
-		mapped, err = Fetch2Maps(false, rows)
-		if err != nil {
+	for index, item := range objItem {
+		v, found := mapped[0][index]
+		if !found {
+			continue
+		}
+		if err = conv.To(v, item); err != nil {
 			return err
 		}
+	}
 
-		// 使val表示的数组长度最起码和mapped一样。
-		size := len(mapped) - val.Len()
-		for i := 0; i < size; i++ {
-			val = reflect.Append(val, reflect.New(itemType))
-		}
+	return nil
+}
 
-		for i := 0; i < len(mapped); i++ {
-			objItem := make(map[string]reflect.Value, 0)
-			if err = parseObj(val.Index(i), &objItem); err != nil {
-				return err
-			}
-			for index, item := range objItem {
-				v, found := mapped[i][index]
-				if !found {
-					continue
-				}
-				if err = conv.To(v, item); err != nil {
-					return err
-				}
-			} // end for objItem
-		}
-	case reflect.Struct: // 导出到一个struct对象中
-		mapped, err = Fetch2Maps(true, rows)
-		if err != nil {
-			return err
-		}
+// 将rows中的记录按obj的长度数量导出到obj中。
+// val的类型必须是reflect.Slice或是reflect.Array.
+func fetchObjToFixedSlice(val reflect.Value, rows *sql.Rows) error {
+	itemType := val.Type().Elem()
+	if itemType.Kind() == reflect.Ptr {
+		itemType = itemType.Elem()
+	}
+	// 判断数组元素的类型是否为struct
+	if itemType.Kind() != reflect.Struct {
+		return fmt.Errorf("元素类型只能为reflect.Struct或是struct指针，当前为[%v]", itemType.Kind())
+	}
+
+	// 先导出数据到map中
+	mapped, err := Fetch2Maps(false, rows)
+	if err != nil {
+		return err
+	}
+
+	l := len(mapped)
+	if l > val.Len() {
+		l = val.Len()
+	}
+
+	for i := 0; i < l; i++ {
 		objItem := make(map[string]reflect.Value, 0)
-		if err = parseObj(val, &objItem); err != nil {
+		if err = parseObj(val.Index(i), &objItem); err != nil {
 			return err
 		}
 		for index, item := range objItem {
-			v, found := mapped[0][index]
+			v, found := mapped[i][index]
 			if !found {
 				continue
 			}
 			if err = conv.To(v, item); err != nil {
 				return err
 			}
-		}
-
-	default:
-		return errors.New("只支持Slice和Struct指针")
+		} // end for objItem
 	}
 
+	return nil
+}
+
+// 将rows中的记录导出到val中，val必须为slice的指针。
+func fetchObjToSlice(val reflect.Value, rows *sql.Rows) error {
+	elem := val.Elem()
+
+	itemType := elem.Type().Elem()
+	if itemType.Kind() == reflect.Ptr {
+		itemType = itemType.Elem()
+	}
+	// 判断数组元素的类型是否为struct
+	if itemType.Kind() != reflect.Struct {
+		return fmt.Errorf("元素类型只能为reflect.Struct或是struct指针，当前为[%v]", itemType.Kind())
+	}
+
+	// 先导出数据到map中
+	mapped, err := Fetch2Maps(false, rows)
+	if err != nil {
+		return err
+	}
+
+	// 使elem表示的数组长度最起码和mapped一样。
+	size := len(mapped) - elem.Len()
+	if size > 0 {
+		for i := 0; i < size; i++ {
+			elem = reflect.Append(elem, reflect.New(itemType))
+		}
+		val.Elem().Set(elem)
+	}
+
+	for i := 0; i < len(mapped); i++ {
+		objItem := make(map[string]reflect.Value, 0)
+		if err = parseObj(elem.Index(i), &objItem); err != nil {
+			return err
+		}
+
+		for index, item := range objItem {
+			e, found := mapped[i][index]
+			if !found {
+				continue
+			}
+			if err = conv.To(e, item); err != nil {
+				return err
+			}
+		} // end for objItem
+	}
+
+	return nil
+}
+
+// 将rows中的数据导出到obj中。obj可以是以下三种类型的值：
+//
+// struct指针：将rows中的第一条记录转换成obj对象。
+//
+// struct数组：将rows中的len(obj)条记录导出到obj对象中；
+// 若rows中的数量不足，则obj尾部的元素保存原来的值。
+//
+// struct数组指针：将rows中的所有记录依次写入obj中。若rows
+// 中的记录比len(obj)要长，则会增长obj的长度以适应rows的所有记录。
+func Fetch2Objs(obj interface{}, rows *sql.Rows) (err error) {
+	val := reflect.ValueOf(obj)
+
+	switch val.Kind() {
+	case reflect.Ptr:
+		elem := val.Elem()
+		switch elem.Kind() {
+		case reflect.Slice:
+			return fetchObjToSlice(val, rows)
+		case reflect.Array:
+			return fetchObjToFixedSlice(elem, rows)
+		case reflect.Struct:
+			return fetchOnceObj(elem, rows)
+		default:
+			return fmt.Errorf("不允许的数据类型：[%v]", val.Kind())
+		}
+	case reflect.Slice:
+		return fetchObjToFixedSlice(val, rows)
+	default:
+		return fmt.Errorf("不允许的数据类型：[%v]", val.Kind())
+	}
 	return nil
 }
 

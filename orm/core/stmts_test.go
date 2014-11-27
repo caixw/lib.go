@@ -131,6 +131,6 @@ func TestStmtsAddSetSQL(t *testing.T) {
 	stmt, found = s.Get("sql4")
 	a.True(found).NotNil(stmt)
 
-	s.Free()
+	s.Close()
 	a.Nil(s.items)
 }
