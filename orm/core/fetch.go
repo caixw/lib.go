@@ -15,9 +15,9 @@ import (
 	"github.com/caixw/lib.go/encoding/tag"
 )
 
-// 将v分解成map[string]reflect.Value形式，其中键名为对象的字段名，
-// 键值为字段的值，支持匿名字段，不会导出不可导出(小写字母开头)的
-// 字段，也不会导出struct tag以-开头的字段。
+// 将v转换成map[string]reflect.Value形式，其中键名为对象的字段名，
+// 键值为字段的值。支持匿名字段，不会转换不可导出(小写字母开头)的
+// 字段，也不会转换struct tag以-开头的字段。
 func parseObj(v reflect.Value, ret *map[string]reflect.Value) error {
 	if v.Kind() == reflect.Ptr {
 		v = v.Elem()
@@ -60,7 +60,7 @@ func parseObj(v reflect.Value, ret *map[string]reflect.Value) error {
 	return nil
 }
 
-// 将rows中的数据导出到obj中，obj可以是map、struct或是与之对应的数组。
+// 将rows中的数据导出到obj中。obj可以是struct或是struct组成的数组。
 func Fetch2Objs(obj interface{}, rows *sql.Rows) (err error) {
 	val := reflect.ValueOf(obj)
 	if val.Kind() == reflect.Ptr {
@@ -133,8 +133,7 @@ func Fetch2Objs(obj interface{}, rows *sql.Rows) (err error) {
 }
 
 // 将rows中的数据导出到map[string]interface{}中。
-//
-// once 是否只查询一条记录，若为true，则返回长度为1的slice
+// 若once值为true，则只导出第一条数据。返回的map长度为1
 func Fetch2Maps(once bool, rows *sql.Rows) ([]map[string]interface{}, error) {
 	cols, err := rows.Columns()
 	if err != nil {
@@ -173,8 +172,7 @@ func Fetch2Maps(once bool, rows *sql.Rows) ([]map[string]interface{}, error) {
 }
 
 // 将rows中的数据导出到一个map[string]string中。
-// 功能上与Fetch2Maps()上一样，但是对于一些确定字段值为String的，
-// 使用些方法会方便一些。
+// 功能上与Fetch2Maps()上一样，但map的值固定为string，方便特殊情况下使用。
 func Fetch2MapsString(once bool, rows *sql.Rows) (data []map[string]string, err error) {
 	cols, err := rows.Columns()
 	if err != nil {
@@ -206,9 +204,9 @@ func Fetch2MapsString(once bool, rows *sql.Rows) (data []map[string]string, err 
 	return data, nil
 }
 
-// 导出某列的所有数据
-//
-// colName 该列的名称，若不指定了不存在的名称，返回error
+// 导出rows中某列的数据。
+// once若为true，则只导出第一条数据的指定列。
+// colName 指定需要导出的列名，若不指定了不存在的名称，返回error；
 func FetchColumns(once bool, colName string, rows *sql.Rows) ([]interface{}, error) {
 	cols, err := rows.Columns()
 	if err != nil {
@@ -245,7 +243,7 @@ func FetchColumns(once bool, colName string, rows *sql.Rows) ([]interface{}, err
 	return data, nil
 }
 
-// 导出某列的所有数据
+// 导出rows中某列的所有数据。功能同FetchColumns()，除了返回的是字符串数组以外。
 func FetchColumnsString(once bool, colName string, rows *sql.Rows) ([]string, error) {
 	cols, err := rows.Columns()
 	if err != nil {

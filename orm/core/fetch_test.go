@@ -124,8 +124,8 @@ func TestFetch2Maps(t *testing.T) {
 	a.NotError(err).NotNil(mapped)
 
 	a.Equal([]map[string]interface{}{
-		map[string]interface{}{"id": "0", "Email": "email-0"},
-		map[string]interface{}{"id": "1", "Email": "email-1"},
+		map[string]interface{}{"id": 0, "Email": "email-0"},
+		map[string]interface{}{"id": 1, "Email": "email-1"},
 	}, mapped)
 }
 

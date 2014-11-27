@@ -5,7 +5,6 @@
 package core
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/caixw/lib.go/assert"
