@@ -42,7 +42,7 @@ func createColSQL(buf *bytes.Buffer, col *core.Column, d base) {
 	}
 }
 
-// 产生pk语句
+// create table语句中pk约束的语句
 func createPKSQL(buf *bytes.Buffer, cols []*core.Column, pkName string, d base) {
 	//CONSTRAINT pk_name PRIMARY KEY (id,lastName)
 	buf.WriteString(" CONSTRAINT ")
@@ -57,7 +57,7 @@ func createPKSQL(buf *bytes.Buffer, cols []*core.Column, pkName string, d base) 
 	buf.WriteByte(')')
 }
 
-// create table语句中的索引约束部分的语句。包括pk,unique
+// create table语句中的unique约束部分的语句。
 func createUniqueSQL(buf *bytes.Buffer, cols []*core.Column, indexName string, d base) {
 	//CONSTRAINT unique_name UNIQUE (id,lastName)
 	buf.WriteString(" CONSTRAINT ")
@@ -72,6 +72,7 @@ func createUniqueSQL(buf *bytes.Buffer, cols []*core.Column, indexName string, d
 	buf.WriteByte(')')
 }
 
+// create table语句中fk的约束部分的语句
 func createFKSQL(buf *bytes.Buffer, fk *core.ForeignKey, fkName string, d base) {
 	//CONSTRAINT fk_name FOREIGN KEY (id) REFERENCES user(id)
 	buf.WriteString(" CONSTRAINT ")
@@ -86,8 +87,19 @@ func createFKSQL(buf *bytes.Buffer, fk *core.ForeignKey, fkName string, d base) 
 	buf.WriteByte('(')
 	d.quote(buf, fk.RefColName)
 	buf.WriteByte(')')
+
+	if len(fk.UpdateRule) > 0 {
+		buf.WriteString(" ON UPDATE ")
+		buf.WriteString(fk.UpdateRule)
+	}
+
+	if len(fk.DeleteRule) > 0 {
+		buf.WriteString(" ON DELETE ")
+		buf.WriteString(fk.DeleteRule)
+	}
 }
 
+// create table语句中check约束部分的语句
 func createCheckSQL(buf *bytes.Buffer, expr, chkName string, d base) {
 	//CONSTRAINT chk_name CHECK (id>0 AND username='admin')
 	buf.WriteString(" CONSTRAINT ")
@@ -99,52 +111,72 @@ func createCheckSQL(buf *bytes.Buffer, expr, chkName string, d base) {
 	buf.WriteByte(')')
 }
 
-func upgradeCols(model *core.Model, d base, db core.DB) error {
-	dbCols, err := d.getCols(db, model.Name)
-	if err != nil {
+// 添加标准的索引约束：pk,unique,foreign key
+// 一些非标准的索引需要各个Dialect自己去实现：如mysql的KEY索引
+func addIndexes(db core.DB, model *core.Model, d base) error {
+	// ALTER TABLE语句的公共语句部分，可以重复利用：
+	// ALTER TABLE table_name ADD CONSTRAINT
+	buf := bytes.NewBufferString("ALTER TABLE ")
+	d.quote(buf, model.Name)
+	buf.WriteString(" ADD CONSTRAINT ")
+	size := buf.Len()
+
+	// ALTER TABLE tbname ADD CONSTRAINT pk PRIMARY KEY
+	buf.WriteString("pk PRIMARY KEY(")
+	for _, col := range model.PK {
+		buf.WriteString(col.Name)
+		buf.WriteByte(',')
+	}
+	buf.UnreadByte()
+	buf.WriteByte(')')
+	if _, err := db.Exec(buf.String()); err != nil {
 		return err
 	}
 
-	// 转换成map，仅用到键名，键值一律置空
-	dbColsMap := make(map[string]interface{}, len(dbCols))
-	for _, col := range dbCols {
-		dbColsMap[col] = nil
-	}
-
-	buf := bytes.NewBufferString("ALTER TABLE ")
-	d.quote(buf, model.Name)
-	size := buf.Len()
-
-	// 将model中的列信息作用于数据库中的表，
-	// 并将过滤dbCols中的列，只剩下不存在于model中的字段。
-	for colName, col := range model.Cols {
+	// ALTER TABLE tbname ADD CONSTRAINT uniquteName unique(...)
+	for name, cols := range model.UniqueIndexes {
 		buf.Truncate(size)
-
-		if _, found := dbColsMap[colName]; !found {
-			buf.WriteString(" ADD ")
-		} else {
-			buf.WriteString(" ALTER COLUMN ")
-			delete(dbColsMap, colName)
+		d.quote(buf, name)
+		buf.WriteString(" UNIQUE(")
+		for _, col := range cols {
+			buf.WriteString(col.Name)
+			buf.WriteByte(',')
 		}
-
-		createColSQL(buf, col, d)
+		buf.UnreadByte()
+		buf.WriteByte(')')
 
 		if _, err := db.Exec(buf.String()); err != nil {
 			return err
 		}
 	}
 
-	if len(dbCols) == 0 {
-		return nil
+	// fk ALTER TABLE tbname ADD CONSTRAINT fkname FOREIGN KEY (col) REFERENCES tbl(tblcol)
+	for name, fk := range model.FK {
+		buf.Truncate(size)
+		d.quote(buf, name)
+		buf.WriteString(" FOREIGN KEY(")
+		d.quote(buf, fk.Col.Name)
+		buf.WriteByte(')')
+
+		buf.WriteString(" REFERENCES ")
+		buf.WriteString(fk.RefTableName)
+		buf.WriteByte('(')
+		buf.WriteString(fk.RefColName)
+		buf.WriteByte(')')
+
+		if _, err := db.Exec(buf.String()); err != nil {
+			return err
+		}
 	}
 
-	// 删除已经不存在于model中的字段。
-	buf.Truncate(size)
-	buf.WriteString(" DROP COLUMN ")
-	size = buf.Len()
-	for name, _ := range dbColsMap {
+	// chk ALTER TABLE tblname ADD CONSTRAINT chkName CHECK (id>0 AND city='abc')
+	for name, expr := range model.Check {
 		buf.Truncate(size)
-		buf.WriteString(name)
+		d.quote(buf, name) // checkName
+		buf.WriteString(" CHECK(")
+		buf.WriteString(expr)
+		buf.WriteByte(')')
+
 		if _, err := db.Exec(buf.String()); err != nil {
 			return err
 		}

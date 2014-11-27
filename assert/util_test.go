@@ -9,30 +9,38 @@ import (
 )
 
 func TestIsEqual(t *testing.T) {
-	fn := func(result bool, v1, v2 interface{}) {
-		if result != IsEqual(v1, v2) {
-			t.Errorf("%v == IsEqual(%T,%T)时出错", result, v1, v2)
+	eq := func(v1, v2 interface{}) {
+		if !IsEqual(v1, v2) {
+			t.Errorf("eq:[%v]!=[%v]", v1, v2)
 		}
 	}
 
-	fn(true, []byte("abc"), "abc")
-	fn(true, "abc", []byte("abc"))
+	neq := func(v1, v2 interface{}) {
+		if IsEqual(v1, v2) {
+			t.Errorf("eq:[%v]==[%v]", v1, v2)
+		}
+	}
 
-	fn(true, []byte("中文abc"), "中文abc")
-	fn(true, "中文abc", []byte("中文abc"))
+	eq([]byte("abc"), "abc")
+	eq("abc", []byte("abc"))
 
-	fn(true, []rune("中文abc"), "中文abc")
-	fn(true, "中文abc", []rune("中文abc"))
+	eq([]byte("中文abc"), "中文abc")
+	eq("中文abc", []byte("中文abc"))
 
-	fn(true, 5, 5.0)
-	fn(true, int8(5), 5)
-	fn(true, 5, int8(5))
-	fn(true, float64(5), int8(5))
-	fn(true, []int{1, 2, 3}, []int{1, 2, 3})
-	fn(true, []int{1, 2, 3}, []int8{1, 2, 3})
-	fn(true, []float32{1, 2.0, 3}, []int8{1, 2, 3})
-	fn(true, []float32{1, 2.0, 3}, []float64{1, 2, 3})
-	fn(true,
+	eq([]rune("中文abc"), "中文abc")
+	eq("中文abc", []rune("中文abc"))
+
+	eq(5, 5.0)
+	eq(int8(5), 5)
+	eq(5, int8(5))
+	eq(float64(5), int8(5))
+	eq([]int{1, 2, 3}, []int{1, 2, 3})
+	eq([]int{1, 2, 3}, []int8{1, 2, 3})
+	eq([]float32{1, 2.0, 3}, []int8{1, 2, 3})
+	eq([]float32{1, 2.0, 3}, []float64{1, 2, 3})
+
+	// 比较两个元素类型可相互转换的数组
+	eq(
 		[][]int{
 			[]int{1, 2},
 			[]int{3, 4},
@@ -42,7 +50,9 @@ func TestIsEqual(t *testing.T) {
 			[]int8{3, 4},
 		},
 	)
-	fn(true,
+
+	// 比较两个元素类型可转换的map
+	eq(
 		[]map[int]int{
 			map[int]int{1: 1, 2: 2},
 			map[int]int{3: 3, 4: 4},
@@ -52,15 +62,26 @@ func TestIsEqual(t *testing.T) {
 			map[int]int8{3: 3, 4: 4},
 		},
 	)
+	eq(map[string]int{"1": 1, "2": 2}, map[string]int8{"1": 1, "2": 2})
 
-	fn(true, map[string]int{"1": 1, "2": 2}, map[string]int8{"1": 1, "2": 2})
+	// 比较两个元素类型可转换的map
+	eq(
+		map[int]string{
+			1: "1",
+			2: "2",
+		},
+		map[int][]byte{
+			1: []byte("1"),
+			2: []byte("2"),
+		},
+	)
 
-	fn(false, map[int]int{1: 1, 2: 2}, map[int8]int{1: 1, 2: 2})
-	fn(false, []int{1, 2, 3}, []int{3, 2, 1})
-	fn(false, "5", 5)
-	fn(false, true, "true")
-	fn(false, true, 1)
-	fn(false, true, "1")
+	neq(map[int]int{1: 1, 2: 2}, map[int8]int{1: 1, 2: 2})
+	neq([]int{1, 2, 3}, []int{3, 2, 1})
+	neq("5", 5)
+	neq(true, "true")
+	neq(true, 1)
+	neq(true, "1")
 }
 
 func TestIsEmpty(t *testing.T) {

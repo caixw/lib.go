@@ -43,22 +43,90 @@ func (m *mysql) SupportLastInsertId() bool {
 
 // implement core.Dialect.CreateTable()
 func (m *mysql) CreateTable(db core.DB, model *core.Model) error {
-	model.Name = db.ReplacePrefix(model.Name) // 处理表名
+	// 处理表名前缀问题
+	model.Name = db.ReplacePrefix(model.Name)
 
-	if m.hasTable(db, model.Name) {
+	sql := "SELECT `TABLE_NAME` FROM `INFORMATION_SCHEMA`.`TABLES` WHERE `TABLE_SCHEMA`=? and `TABLE_NAME`=?"
+	rows, err := db.Query(sql, db.Name(), model.Name)
+	if err != nil {
+		return err
+	}
+
+	if rows.Next() { // 存在指定的表名
 		return m.upgradeTable(db, model)
 	}
 	return m.createTable(db, model)
 }
 
-// 指定的表是否存在
-func (m *mysql) hasTable(db core.DB, tableName string) bool {
-	sql := "SELECT `TABLE_NAME` FROM `INFORMATION_SCHEMA`.`TABLES` WHERE `TABLE_SCHEMA`=? and `TABLE_NAME`=?"
-	rows, err := db.Query(sql, db.Name(), tableName)
-	if err != nil {
-		panic(err)
+// implement base.quote()
+func (m *mysql) quote(buf *bytes.Buffer, sql string) {
+	buf.WriteByte('`')
+	buf.WriteString(sql)
+	buf.WriteByte('`')
+}
+
+// implement base.sqlType()
+func (m *mysql) sqlType(buf *bytes.Buffer, col *core.Column) {
+	addIntLen := func() {
+		if col.Len1 > 0 {
+			buf.WriteByte('(')
+			buf.WriteString(strconv.Itoa(col.Len1))
+			buf.WriteByte(')')
+		}
 	}
-	return rows.Next()
+	switch col.GoType.Kind() {
+	case reflect.Bool:
+		buf.WriteString("BOOLEAN")
+	case reflect.Int8:
+		buf.WriteString("TINYINT")
+		addIntLen()
+	case reflect.Int16:
+		buf.WriteString("SMALLINT")
+		addIntLen()
+	case reflect.Int32:
+		buf.WriteString("INT")
+		addIntLen()
+	case reflect.Int64, reflect.Int: // reflect.Int大小未知，都当作是BIGINT处理
+		buf.WriteString("BIGINT")
+		addIntLen()
+	case reflect.Uint8:
+		buf.WriteString("TINYINT")
+		addIntLen()
+		buf.WriteString(" UNSIGNED")
+	case reflect.Uint16:
+		buf.WriteString("SMALLINT")
+		addIntLen()
+		buf.WriteString(" UNSIGNED")
+	case reflect.Uint32:
+		buf.WriteString("INT")
+		addIntLen()
+		buf.WriteString(" UNSIGNED")
+	case reflect.Uint64, reflect.Uint, reflect.Uintptr:
+		buf.WriteString("BIGINT")
+		addIntLen()
+		buf.WriteString(" UNSIGNED")
+	case reflect.Float32, reflect.Float64:
+		buf.WriteString(fmt.Sprintf("DOUBLE(%d,%d)", col.Len1, col.Len2))
+	case reflect.String:
+		if col.Len1 < 65533 {
+			buf.WriteString(fmt.Sprintf("VARCHAR(%d)", col.Len1))
+		}
+		buf.WriteString("LONGTEXT")
+	case reflect.Slice, reflect.Array:
+		// 若是数组，则特殊处理[]byte与[]rune两种情况。
+		k := col.GoType.Elem().Kind()
+		if (k != reflect.Int8) && (k != reflect.Int32) {
+			panic("不支持数组类型")
+		}
+
+		if col.Len1 < 65533 {
+			buf.WriteString(fmt.Sprintf("VARCHAR(%d)", col.Len1))
+		}
+		buf.WriteString("LONGTEXT")
+	case reflect.Struct: // TODO(caixw) time,nullstring等处理
+	default:
+		panic(fmt.Sprintf("不支持的类型:[%v]", col.GoType.Name()))
+	}
 }
 
 // 创建表
@@ -132,127 +200,171 @@ func (m *mysql) createTable(db core.DB, model *core.Model) error {
 
 // 更新表
 func (m *mysql) upgradeTable(db core.DB, model *core.Model) error {
-	if err := upgradeCols(model, m, db); err != nil {
+	if err := m.upgradeCols(db, model); err != nil {
 		return err
 	}
 
-	//
+	if err := m.deleteIndexes(db, model); err != nil {
+		return err
+	}
+
+	if err := addIndexes(db, model, m); err != nil {
+		return err
+	}
+
+	// key
+	buf := bytes.NewBufferString("ALTER TABLE ")
+	m.quote(buf, model.Name)
+	size := buf.Len()
+
+	for name, index := range model.KeyIndexes {
+		buf.Truncate(size)
+		buf.WriteString(" ADD INDEX ")
+		m.quote(buf, name)
+		buf.WriteByte('(')
+		for _, col := range index {
+			buf.WriteString(col.Name)
+			buf.WriteByte(',')
+		}
+		buf.UnreadByte()
+		buf.WriteByte(')')
+
+		if _, err := db.Exec(buf.String()); err != nil {
+			return err
+		}
+	}
+
+	if model.AI == nil {
+		return nil
+	}
+
+	// ALTER TABLE document MODIFY COLUMN document_id INT auto_increment
+	buf.Truncate(size)
+	buf.WriteString(" MODIFY COLUMN ")
+	createColSQL(buf, model.AI.Col, m)
+	buf.WriteString(" PRIMARY KEY AUTO_INCREMENT")
+	_, err := db.Exec(buf.String())
+	return err
+}
+
+// 更新表的列信息。
+// 将model中的列与表中的列做对比：存在的修改；不存在的添加；只存在于
+// 表中的列则直接删除。
+func (m *mysql) upgradeCols(db core.DB, model *core.Model) error {
+	dbColsMap, err := m.getCols(db, model)
+	if err != nil {
+		return err
+	}
+
+	buf := bytes.NewBufferString("ALTER TABLE ")
+	m.quote(buf, model.Name)
+	size := buf.Len()
+
+	// 将model中的列信息作用于数据库中的表，
+	// 并将过滤dbCols中的列，只剩下不存在于model中的字段。
+	for colName, col := range model.Cols {
+		buf.Truncate(size)
+
+		if _, found := dbColsMap[colName]; !found {
+			buf.WriteString(" ADD ")
+		} else {
+			buf.WriteString(" MODIFY COLUMN ")
+			delete(dbColsMap, colName)
+		}
+
+		createColSQL(buf, col, m)
+
+		if _, err := db.Exec(buf.String()); err != nil {
+			return err
+		}
+	}
+
+	if len(dbColsMap) == 0 {
+		return nil
+	}
+
+	// 删除已经不存在于model中的字段。
+	buf.Truncate(size)
+	buf.WriteString(" DROP COLUMN ")
+	size = buf.Len()
+	for name, _ := range dbColsMap {
+		buf.Truncate(size)
+		buf.WriteString(name)
+		if _, err := db.Exec(buf.String()); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
 
-func (m *mysql) quote(buf *bytes.Buffer, sql string) {
-	buf.WriteByte('`')
-	buf.WriteString(sql)
-	buf.WriteByte('`')
-}
-
-// 获取表的列信息。
-func (m *mysql) getCols(db core.DB, tableName string) ([]string, error) {
+// 获取表的列信息
+func (m *mysql) getCols(db core.DB, model *core.Model) (map[string]interface{}, error) {
 	sql := "SELECT `COLUMN_NAME` FROM `INFORMATION_SCHEMA`.`COLUMNS` WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
-	rows, err := db.Query(sql, db.Name(), tableName)
+	rows, err := db.Query(sql, db.Name(), model.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	return core.FetchColumnsString(false, "COLUMN_NAME", rows)
-}
-
-// 从数据库导出表的索引信息，保存到model中
-func (m *mysql) getIndexes(db core.DB, model *core.Model, tableName string) {
-	sql := "SELECT `INDEX_NAME`, `NON_UNIQUE`, `COLUMN_NAME` FROM `INFORMATION_SCHEMA`.`STATISTICS`" +
-		" WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
-	rows, err := db.Query(sql, db.Name(), tableName)
+	dbCols, err := core.FetchColumnsString(false, "COLUMN_NAME", rows)
 	if err != nil {
-		panic(err)
+		return nil, nil
 	}
 
+	// 转换成map，仅用到键名，键值一律置空
+	dbColsMap := make(map[string]interface{}, len(dbCols))
+	for _, col := range dbCols {
+		dbColsMap[col] = nil
+	}
+
+	return dbColsMap, nil
+}
+
+// 删除表中的索引
+func (m *mysql) deleteIndexes(db core.DB, model *core.Model) error {
+	sql := "SELECT CONSTRAINT_NAME, CONSTRAINT_TYPE FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA=? AND TABLE_NAME=?"
+	rows, err := db.Query(sql, db.Name(), model.Name)
+	if err != nil {
+		return err
+	}
 	mapped, err := core.Fetch2MapsString(false, rows)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
-	for _, index := range mapped {
-		name := index["INDEX_NAME"]
-		col := model.Cols[index["COLUMN_NAME"]]
-
-		if name == "PRIMARY" {
-			model.PK = append(model.PK, col)
-			continue
+	for _, record := range mapped {
+		switch record["CONSTRAINT_TYPE"] {
+		case "PRIMARY KEY":
+			_, err = db.Exec("ALTER TABLE ? DROP PRIMARY KEY", model.Name)
+		case "FOREIGN KEY":
+			_, err = db.Exec("ALTER TABLE ? DROP FOREIGN KEY ?", model.Name, record["CONSTRAINT_NAME"])
+		case "UNIQUE":
+			_, err = db.Exec("ALTER TABLE ? DROP INDEX ?", model.Name, record["CONSTRAINT_NAME"])
+		default:
 		}
 
-		if index["NON_UNIQUE"] != "1" {
-			model.KeyIndexes[name] = append(model.KeyIndexes[name], col)
-		} else {
-			model.UniqueIndexes[name] = append(model.UniqueIndexes[name], col)
+		if err != nil {
+			return err
 		}
 	}
-}
 
-// 将一个gotype转换成当前数据库支持的类型，如：
-//  int8   ==> INT
-//  string ==> VARCHAR(255)
-func (m *mysql) sqlType(buf *bytes.Buffer, col *core.Column) {
-	addIntLen := func() {
-		if col.Len1 > 0 {
-			buf.WriteByte('(')
-			buf.WriteString(strconv.Itoa(col.Len1))
-			buf.WriteByte(')')
+	sql = "SELECT `INDEX_NAME` FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA=? AND TABLE_NAME=?"
+	rows, err = db.Query(sql, db.Name(), model.Name)
+	if err != nil {
+		return err
+	}
+	indexes, err := core.FetchColumnsString(false, "INDEX_NAME", rows)
+	if err != nil {
+		return err
+	}
+	for _, index := range indexes {
+		_, err := db.Exec("ALTER TABLE ? DROP INDEX ?", model.Name, index)
+		if err != nil {
+			return err
 		}
 	}
-	switch col.GoType.Kind() {
-	case reflect.Bool:
-		buf.WriteString("BOOLEAN")
-	case reflect.Int8:
-		buf.WriteString("TINYINT")
-		addIntLen()
-	case reflect.Int16:
-		buf.WriteString("SMALLINT")
-		addIntLen()
-	case reflect.Int32:
-		buf.WriteString("INT")
-		addIntLen()
-	case reflect.Int64, reflect.Int: // reflect.Int大小未知，都当作是BIGINT处理
-		buf.WriteString("BIGINT")
-		addIntLen()
-	case reflect.Uint8:
-		buf.WriteString("TINYINT")
-		addIntLen()
-		buf.WriteString(" UNSIGNED")
-	case reflect.Uint16:
-		buf.WriteString("SMALLINT")
-		addIntLen()
-		buf.WriteString(" UNSIGNED")
-	case reflect.Uint32:
-		buf.WriteString("INT")
-		addIntLen()
-		buf.WriteString(" UNSIGNED")
-	case reflect.Uint64, reflect.Uint, reflect.Uintptr:
-		buf.WriteString("BIGINT")
-		addIntLen()
-		buf.WriteString(" UNSIGNED")
-	case reflect.Float32, reflect.Float64:
-		buf.WriteString(fmt.Sprintf("DOUBLE(%d,%d)", col.Len1, col.Len2))
-	case reflect.String:
-		if col.Len1 < 65533 {
-			buf.WriteString(fmt.Sprintf("VARCHAR(%d)", col.Len1))
-		}
-		buf.WriteString("LONGTEXT")
-	case reflect.Slice, reflect.Array:
-		// 若是数组，则特殊处理[]byte与[]rune两种情况。
-		k := col.GoType.Elem().Kind()
-		if (k != reflect.Int8) && (k != reflect.Int32) {
-			panic("不支持数组类型")
-		}
 
-		if col.Len1 < 65533 {
-			buf.WriteString(fmt.Sprintf("VARCHAR(%d)", col.Len1))
-		}
-		buf.WriteString("LONGTEXT")
-	case reflect.Struct: // TODO(caixw) time,nullstring等处理
-	default:
-		panic(fmt.Sprintf("不支持的类型:[%v]", col.GoType.Name()))
-	}
+	return nil
 }
 
 func init() {

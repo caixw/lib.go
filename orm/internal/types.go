@@ -19,7 +19,4 @@ type base interface {
 
 	// 将col转换成sql类型，并写入buf中。
 	sqlType(buf *bytes.Buffer, col *core.Column)
-
-	// 获取tableName中的所有字段名称。
-	getCols(db core.DB, tableName string) ([]string, error)
 }
