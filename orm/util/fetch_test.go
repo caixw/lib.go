@@ -56,7 +56,7 @@ func TestParseObj(t *testing.T) {
 
 // 初始化一个sql.DB(sqlite3)，方便后面的测试用例使用。
 func initDB(a *assert.Assertion) *sql.DB {
-	db, err := sql.Open("sqlite3", "./test.db")
+	db, err := sql.Open("sqlite3", "./testdata/test")
 	a.NotError(err).NotNil(db)
 
 	/* 创建表 */
@@ -88,8 +88,8 @@ func initDB(a *assert.Assertion) *sql.DB {
 // 关闭sql.DB(sqlite3)的数据库连结。
 func closeDB(db *sql.DB, a *assert.Assertion) {
 	db.Close()
-	a.NotError(os.Remove("./test.db"))
-	a.FileNotExists("./test.db")
+	a.NotError(os.Remove("./testdata/test"))
+	a.FileNotExists("./testdata/test")
 }
 
 func TestFetch2Objs(t *testing.T) {

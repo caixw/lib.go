@@ -5,4 +5,5 @@ go:
 install:
     - mkdir ./session/stores/file/testdata/
     - mkdir ./logs/writer/testdata/
+    - mkdir ./orm/util/testdata/
     - go get github.com/mattn/go-sqlite3
