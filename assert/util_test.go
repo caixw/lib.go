@@ -76,6 +76,12 @@ func TestIsEqual(t *testing.T) {
 		},
 	)
 
+	// array 对比
+	eq([2]int{1, 2}, [2]int{1, 2})
+	eq([2]int{9, 3}, [2]int8{9, 3})
+	eq([2]int8{1, 4}, [2]int{1, 4})
+	eq([2]int{1, 5}, []int8{1, 5})
+
 	neq(map[int]int{1: 1, 2: 2}, map[int8]int{1: 1, 2: 2})
 	neq([]int{1, 2, 3}, []int{3, 2, 1})
 	neq("5", 5)

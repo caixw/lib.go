@@ -97,6 +97,7 @@ func IsNil(expr interface{}) bool {
 // 可转换的数值也能正确判断，比如以下值也将会被判断为相等：
 //  int8(5)                     == int(5)
 //  []int{1,2}                  == []int8{1,2}
+//  []int{1,2}                  == [2]int8{1,2}
 //  []int{1,2}                  == []float32{1,2}
 //  map[string]int{"1":"2":2}   == map[string]int8{"1":1,"2":2}
 //
@@ -127,8 +128,10 @@ func IsEqual(v1, v2 interface{}) bool {
 	case reflect.Struct, reflect.Ptr, reflect.Func, reflect.Interface:
 		return false
 	case reflect.Slice, reflect.Array:
+		// vv2.Kind()与vv1的不相同
 		if vv2.Kind() != reflect.Slice && vv2.Kind() != reflect.Array {
-			if vv2Type.ConvertibleTo(vv1Type) { // 考虑vv1是[]byte,vv2是string的情况
+			// 虽然类型不同，但可以相互转换成vv1的，如：vv2是string，vv2是[]byte，
+			if vv2Type.ConvertibleTo(vv1Type) {
 				return IsEqual(vv1.Interface(), vv2.Convert(vv1Type).Interface())
 			}
 			return false
@@ -136,14 +139,8 @@ func IsEqual(v1, v2 interface{}) bool {
 
 		// reflect.DeepEqual()未考虑类型不同但是类型可转换的情况，比如：
 		// []int{8,9} == []int8{8,9}，此处重新对slice和array做比较处理。
-		if vv1.IsNil() != vv2.IsNil() {
-			return false
-		}
 		if vv1.Len() != vv2.Len() {
 			return false
-		}
-		if vv1.Pointer() == vv2.Pointer() {
-			return true
 		}
 
 		for i := 0; i < vv1.Len(); i++ {
@@ -190,9 +187,9 @@ func IsEqual(v1, v2 interface{}) bool {
 	}
 
 	if vv1Type.ConvertibleTo(vv2Type) {
-		return vv2 == vv1.Convert(vv2Type)
+		return vv2.Interface() == vv1.Convert(vv2Type).Interface()
 	} else if vv2Type.ConvertibleTo(vv1Type) {
-		return vv1 == vv2.Convert(vv1Type)
+		return vv1.Interface() == vv2.Convert(vv1Type).Interface()
 	}
 
 	return false
