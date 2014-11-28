@@ -128,7 +128,19 @@ func TestFetch2Objs(t *testing.T) {
 		&FetchUser{Id: 1, Email: "email-1"},
 	}, objs)
 
-	// test3:objs的长度大于导出数据的长度。
+	// test3:objs的长度小于导出数据的长度，objs不会增加长度。
+	rows, err = db.Query(sql)
+	a.NotError(err).NotNil(rows)
+	objs = []*FetchUser{
+		&FetchUser{},
+	}
+	a.NotError(Fetch2Objs(objs, rows)) // 非指针传递
+	a.Equal(len(objs), 1)
+	a.Equal([]*FetchUser{
+		&FetchUser{Id: 0, Email: "email-0"},
+	}, objs)
+
+	// test4:objs的长度大于导出数据的长度。
 	rows, err = db.Query(sql)
 	objs = []*FetchUser{
 		&FetchUser{},
@@ -141,6 +153,34 @@ func TestFetch2Objs(t *testing.T) {
 		&FetchUser{Id: 1, Email: "email-1"},
 		&FetchUser{},
 	}, objs)
+
+	// test5:非数组指针传递。
+	rows, err = db.Query(sql)
+	array := [1]*FetchUser{
+		&FetchUser{},
+	}
+	a.Error(Fetch2Objs(array, rows)) // 非指针传递，出错
+
+	// test6:数组指针传递，不会增长数组长度。
+	rows, err = db.Query(sql)
+	array = [1]*FetchUser{
+		&FetchUser{},
+	}
+	a.NotError(Fetch2Objs(&array, rows))
+	a.Equal([1]*FetchUser{
+		&FetchUser{Id: 0, Email: "email-0"},
+	}, objs)
+
+	// test7:obj为一个struct指针。
+	rows, err = db.Query(sql)
+	obj := FetchUser{}
+	a.NotError(Fetch2Objs(&obj, rows))
+	a.Equal(&FetchUser{Id: 0, Email: "email-0"}, obj)
+
+	// test8:obj为一个struct。这将返回错误信息
+	rows, err = db.Query(sql)
+	obj = FetchUser{}
+	a.Error(Fetch2Objs(obj, rows))
 }
 
 func TestFetch2Maps(t *testing.T) {
@@ -158,6 +198,17 @@ func TestFetch2Maps(t *testing.T) {
 	a.Equal([]map[string]interface{}{
 		map[string]interface{}{"id": 0, "Email": "email-0"},
 		map[string]interface{}{"id": 1, "Email": "email-1"},
+	}, mapped)
+
+	// 读取一行
+	rows, err = db.Query(sql)
+	a.NotError(err).NotNil(rows)
+
+	mapped, err = Fetch2Maps(true, rows)
+	a.NotError(err).NotNil(mapped)
+
+	a.Equal([]map[string]interface{}{
+		map[string]interface{}{"id": 0, "Email": "email-0"},
 	}, mapped)
 }
 
@@ -177,6 +228,17 @@ func TestFetch2MapsString(t *testing.T) {
 		map[string]string{"id": "0", "Email": "email-0"},
 		map[string]string{"id": "1", "Email": "email-1"},
 	})
+
+	// 读取一行
+	rows, err = db.Query(sql)
+	a.NotError(err).NotNil(rows)
+
+	mapped, err = Fetch2MapsString(true, rows)
+	a.NotError(err).NotNil(mapped)
+
+	a.Equal(mapped, []map[string]string{
+		map[string]string{"id": "0", "Email": "email-0"},
+	})
 }
 
 func TestFetchColumns(t *testing.T) {
@@ -192,6 +254,15 @@ func TestFetchColumns(t *testing.T) {
 	a.NotError(err).NotNil(cols)
 
 	a.Equal([]interface{}{0, 1}, cols)
+
+	// 读取一行
+	rows, err = db.Query(sql)
+	a.NotError(err).NotNil(rows)
+
+	cols, err = FetchColumns(true, "id", rows)
+	a.NotError(err).NotNil(cols)
+
+	a.Equal([]interface{}{0}, cols)
 }
 
 func TestFetchColumnsString(t *testing.T) {
@@ -207,4 +278,13 @@ func TestFetchColumnsString(t *testing.T) {
 	a.NotError(err).NotNil(cols)
 
 	a.Equal([]string{"0", "1"}, cols)
+
+	// 读取一行
+	rows, err = db.Query(sql)
+	a.NotError(err).NotNil(rows)
+
+	cols, err = FetchColumnsString(false, "id", rows)
+	a.NotError(err).NotNil(cols)
+
+	a.Equal([]string{"0"}, cols)
 }
