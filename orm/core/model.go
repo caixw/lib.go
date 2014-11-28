@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 	"unicode"
 
 	"github.com/caixw/lib.go/conv"
@@ -34,6 +35,9 @@ type Model struct {
 	PK            []*Column              // 主键
 	AI            *AutoIncr              // 自增列
 	Check         map[string]string
+
+	// 约束名缓存
+	constraints map[string]conType
 }
 
 // 外键
@@ -69,6 +73,7 @@ func (c *Column) IsAI() bool {
 }
 
 // 从参数中获取Column的len1和len2变量。
+// len(len1,len2)
 func (c *Column) setLen(vals []string) (err error) {
 	switch len(vals) {
 	case 0:
@@ -77,10 +82,31 @@ func (c *Column) setLen(vals []string) (err error) {
 	case 2:
 		c.Len2, err = strconv.Atoi(vals[1])
 	default:
-		err = errors.New("len标签有过多的参数")
+		err = fmt.Errorf("[%v]字段的len属性指定了过多的参数:[%v]", c.Name, vals)
 	}
 
 	return
+}
+
+// 从vals中分析，得出Column.Nullable的值。
+// nullable; or nullable(true);
+func (c *Column) setNullable(vals []string) (err error) {
+	if c.IsAI() {
+		return fmt.Errorf("自增列[%v]不能为nullable", c.Name)
+	}
+
+	switch {
+	case len(vals) == 0:
+		c.Nullable = true
+	case len(vals) == 1:
+		if c.Nullable, err = conv.Bool(vals[0]); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("[%v]字段的nullable属性指定了太多的值:[]", c.Name, vals)
+	}
+
+	return nil
 }
 
 // 从一个obj声明一个Model实例
@@ -101,6 +127,7 @@ func NewModel(obj interface{}) (*Model, error) {
 		Name:          rtype.Name(),
 		FK:            map[string]*ForeignKey{},
 		Check:         map[string]string{},
+		constraints:   map[string]conType{},
 	}
 
 	num := rtype.NumField()
@@ -124,6 +151,11 @@ func NewModel(obj interface{}) (*Model, error) {
 		case "name":
 			m.Name = v[0]
 		case "check":
+			if typ := m.hasConstraint(v[0]); typ != none {
+				return nil, fmt.Errorf("已经存在相同的约束名，位于[%v]中", typ)
+			}
+
+			m.constraints[v[0]] = check
 			m.Check[v[0]] = v[1]
 		default:
 		}
@@ -133,7 +165,7 @@ func NewModel(obj interface{}) (*Model, error) {
 }
 
 // 分析一个字段。
-func (m *Model) parseColumn(field reflect.StructField) error {
+func (m *Model) parseColumn(field reflect.StructField) (err error) {
 	// 直接忽略以小写字母开头的字段
 	if unicode.IsLower(rune(field.Name[0])) {
 		return nil
@@ -157,58 +189,33 @@ func (m *Model) parseColumn(field reflect.StructField) error {
 	tags := tag.Parse(tagTxt)
 	for k, v := range tags {
 		switch k {
-		case "name":
-			// name(colname)
+		case "name": // name(colname)
+			if len(v) != 1 {
+				return fmt.Errorf("name属性指定了太多的参数：[%v]", v)
+			}
 			col.Name = v[0]
 		case "index":
-			// index(idx_name)
-			m.KeyIndexes[v[0]] = append(m.KeyIndexes[v[0]], col)
+			err = m.setIndex(col, v)
 		case "pk":
-			// pk; or pk(true)
-			if m.AI != nil { // 若存在自增列，则不理其它主键设置
-				continue
-			}
-			m.PK = append(m.PK, col)
+			err = m.setPK(col, v)
 		case "unique":
-			// unique(unique_name)
-			m.UniqueIndexes[v[0]] = append(m.UniqueIndexes[v[0]], col)
+			err = m.setUnique(col, v)
 		case "nullable":
-			// nullable; or nullable(true);
-			if col.IsAI() {
-				panic(fmt.Sprintf("自增列[%v]不能为nullable", col.Name))
-			}
-
-			if len(v) == 0 {
-				col.Nullable = true
-			} else {
-				col.Nullable = conv.MustBool(v[0], false)
-			}
+			err = col.setNullable(v)
 		case "ai":
-			// ai(colName,start,step)
-			if col.Nullable {
-				panic(fmt.Sprintf("自增列[%v]不能为nullable", col.Name))
-			}
-			if err := m.setAI(col, v); err != nil {
-				return err
-			}
-
-			m.PK = append(m.PK[:0], col) // 则去掉其它主键，将自增列设置为主键
+			err = m.setAI(col, v)
 		case "len":
-			// len(len1,len2)
-			if err := col.setLen(v); err != nil {
-				return err
-			}
-
+			err = col.setLen(v)
 		case "fk":
-			// fk(fk_name,colName,refTable,refColName,updateRule,deleteRule)
-			if err := m.setFK(col, v); err != nil {
-				return err
-			}
+			err = m.setFK(col, v)
 		case "default":
-			// default(5)
-			col.HasDefault = true
-			col.Default = v[0]
+			err = m.setDefault(col, v)
 		default:
+			err = fmt.Errorf("未知的struct tag属性:[%v]", k)
+		}
+
+		if err != nil {
+			return err
 		}
 	}
 	m.Cols[col.Name] = col
@@ -216,31 +223,108 @@ func (m *Model) parseColumn(field reflect.StructField) error {
 	return nil
 }
 
+// default(5)
+func (m *Model) setDefault(col *Column, vals []string) error {
+	if m.AI.Col == col {
+		return errors.New("自增列不能设置默认值")
+	}
+
+	if len(vals) != 1 {
+		return fmt.Errorf("[%v]字段的default属性指定了太多的参数：[%v]", col.Name, vals)
+	}
+
+	col.HasDefault = true
+	col.Default = vals[0]
+
+	return nil
+}
+
+// index(idx_name)
+func (m *Model) setIndex(col *Column, vals []string) error {
+	if len(vals) != 1 {
+		return fmt.Errorf("[%v]字段的index属性指定了太多的参数:[%v]", col.Name, vals)
+	}
+
+	if typ := m.hasConstraint(vals[0]); typ != none {
+		return fmt.Errorf("已经存在相同的约束名，位于[%v]中", typ)
+	}
+
+	m.constraints[vals[0]] = index
+	m.KeyIndexes[vals[0]] = append(m.KeyIndexes[vals[0]], col)
+	return nil
+}
+
+// pk
+func (m *Model) setPK(col *Column, vals []string) error {
+	if len(vals) != 0 {
+		return fmt.Errorf("[%v]字段的pk属性指定了太多的参数:[%v]", col.Name, vals)
+	}
+
+	if m.AI != nil {
+		return fmt.Errorf("已经存在自增列，不需要再次指定主键")
+	}
+
+	m.PK = append(m.PK, col)
+	return nil
+}
+
+// 从vals中分析unique索引
+// unique(unique_name)
+func (m *Model) setUnique(col *Column, vals []string) error {
+	if len(vals) != 1 {
+		return fmt.Errorf("[%v]字段的unique属性只能带一个参数:[%v]", col.Name, vals)
+	}
+
+	if typ := m.hasConstraint(vals[0]); typ != none {
+		return fmt.Errorf("已经存在相同的约束名，位于[%v]中", typ)
+	}
+
+	m.constraints[vals[0]] = unique
+	m.UniqueIndexes[vals[0]] = append(m.UniqueIndexes[vals[0]], col)
+
+	return nil
+}
+
+// 添加model的外键属性。
+// fk(fk_name,refTable,refColName,updateRule,deleteRule)
 func (m *Model) setFK(col *Column, vals []string) error {
-	// fk(fk_name,refTable,refColName,updateRule,deleteRule)
+	if typ := m.hasConstraint(vals[0]); typ != none {
+		return fmt.Errorf("已经存在相同的约束名，位于[%v]中", typ)
+	}
+
 	if len(vals) < 3 {
 		return errors.New("fk参数必须大于3个")
 	}
 
-	fk := &ForeignKey{
+	if _, found := m.FK[vals[0]]; found {
+		return fmt.Errorf("重复的外键约束名:[%v]", vals[0])
+	}
+
+	fkInst := &ForeignKey{
 		Col:          col,
 		RefTableName: vals[1],
 		RefColName:   vals[2],
 	}
 
 	if len(vals) > 3 { // 存在updateRule
-		fk.UpdateRule = vals[3]
+		fkInst.UpdateRule = vals[3]
 	}
 	if len(vals) > 4 { // 存在deleteRule
-		fk.DeleteRule = vals[4]
+		fkInst.DeleteRule = vals[4]
 	}
 
-	m.FK[vals[0]] = fk
+	m.constraints[vals[0]] = fk
+	m.FK[vals[0]] = fkInst
 	return nil
 }
 
 // 修改或是添加Model的AI变量。
+// ai(colName,start,step)
 func (m *Model) setAI(col *Column, vals []string) (err error) {
+	if col.Nullable {
+		return fmt.Errorf("自增列[%v]不能为nullable", col.Name)
+	}
+
 	switch col.GoType.Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
@@ -259,6 +343,21 @@ func (m *Model) setAI(col *Column, vals []string) (err error) {
 	default:
 		err = errors.New("AI标签有过多的参数")
 	}
+	if err != nil {
+		return err
+	}
 
-	return
+	m.PK = append(m.PK[:0], col) // 去掉其它主键，将自增列设置为主键
+	return nil
+}
+
+// 是否存在指定名称的约束名，name不区分大小写。
+// 若已经存在返回表示该约束类型的常量，否则返回none。
+func (m *Model) hasConstraint(name string) conType {
+	// 约束名不区分大小写
+	if typ, found := m.constraints[strings.ToLower(name)]; found {
+		return typ
+	}
+
+	return none
 }

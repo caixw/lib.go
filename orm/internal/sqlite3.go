@@ -83,7 +83,7 @@ func (s *sqlite3) upgradeTable(db core.DB, m *core.Model) error {
 }
 
 func init() {
-	if err := core.RegisterDialect("sqlite3", &mysql{}); err != nil {
+	if err := core.RegisterDialect("sqlite3", &sqlite3{}); err != nil {
 		panic(err)
 	}
 }

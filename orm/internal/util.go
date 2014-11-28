@@ -22,7 +22,7 @@ func oracleLimitSQL(limit, offset int) (string, []interface{}) {
 	return " OFFSET ? ROWS FETCH NEXT ? ROWS ONLY ", []interface{}{offset, limit}
 }
 
-// 用于产生在createTable中使用的普通列信息表达式，不包含autoincrement的关键字。
+// 用于产生在createTable中使用的普通列信息表达式，不包含autoincrement和primary key的关键字。
 func createColSQL(buf *bytes.Buffer, col *core.Column, d base) {
 	// col_name VARCHAR(100) NOT NULL DEFAULT 'abc'
 	d.quote(buf, col.Name)
@@ -111,7 +111,7 @@ func createCheckSQL(buf *bytes.Buffer, expr, chkName string, d base) {
 	buf.WriteByte(')')
 }
 
-// 添加标准的索引约束：pk,unique,foreign key
+// 添加标准的索引约束：pk,unique,foreign key,check
 // 一些非标准的索引需要各个Dialect自己去实现：如mysql的KEY索引
 func addIndexes(db core.DB, model *core.Model, d base) error {
 	// ALTER TABLE语句的公共语句部分，可以重复利用：

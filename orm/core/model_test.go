@@ -12,7 +12,7 @@ import (
 
 type modelUser struct {
 	Id       int    `orm:"name(id);ai(1,2);"`
-	Email    string `orm:"unique(unique_index);nullable;pk(pk_name)"`
+	Email    string `orm:"unique(unique_index);nullable;"`
 	Username string `orm:"index(index)"`
 	Group    int    `orm:"name(group);"`
 
@@ -31,7 +31,7 @@ func TestModel(t *testing.T) {
 	a.True(found)
 
 	emailCol, found := m.Cols["Email"] // 未指定别名，与字段名相同
-	a.True(found).True(emailCol.Nullable)
+	a.True(found).True(emailCol.Nullable, "emailCol.Nullable==false")
 
 	usernameCol, found := m.Cols["Username"]
 	a.True(found)

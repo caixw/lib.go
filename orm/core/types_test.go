@@ -6,7 +6,28 @@ package core
 
 import (
 	"database/sql"
+	"fmt"
+	"testing"
+
+	"github.com/caixw/lib.go/assert"
 )
+
+func TestConTypeString(t *testing.T) {
+	a := assert.New(t)
+
+	a.Equal("<none>", none.String()).
+		Equal("KEY", fmt.Sprint(key)).
+		Equal("INDEX", index.String()).
+		Equal("UNIQUE", unique.String()).
+		Equal("FOREIGN KEY", fk.String()).
+		Equal("CHECK", check.String())
+
+	var c1 conType
+	a.Equal("<none>", c1.String())
+
+	c1 = 100
+	a.Equal("<unknown>", c1.String())
+}
 
 // fakeDialect1
 type fakeDialect1 struct {

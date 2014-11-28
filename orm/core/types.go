@@ -61,3 +61,34 @@ type DB interface {
 	// 相当于sql.DB.Prepare()
 	Prepare(sql string) (*sql.Stmt, error)
 }
+
+type conType int
+
+// 预定的约束类型，方便Model中使用。
+const (
+	none conType = iota
+	key
+	index
+	unique
+	fk
+	check
+)
+
+func (t conType) String() string {
+	switch t {
+	case none:
+		return "<none>"
+	case key:
+		return "KEY"
+	case index:
+		return "INDEX"
+	case unique:
+		return "UNIQUE"
+	case fk:
+		return "FOREIGN KEY"
+	case check:
+		return "CHECK"
+	default:
+		return "<unknown>"
+	}
+}
