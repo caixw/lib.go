@@ -650,6 +650,7 @@ func (s *Select) Fetch2Map(args ...interface{}) (map[string]interface{}, error) 
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	data, err := util.Fetch2Maps(true, rows)
 	if err != nil {
@@ -665,6 +666,7 @@ func (s *Select) Fetch2Maps(args ...interface{}) ([]map[string]interface{}, erro
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	data, err := util.Fetch2Maps(true, rows)
 	if err != nil {
@@ -680,6 +682,7 @@ func (s *Select) FetchColumn(col string, args ...interface{}) (interface{}, erro
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	data, err := util.FetchColumns(true, col, rows)
 	if err != nil {
@@ -695,6 +698,7 @@ func (s *Select) FetchColumns(col string, args ...interface{}) ([]interface{}, e
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	data, err := util.FetchColumns(true, col, rows)
 	if err != nil {
@@ -710,6 +714,7 @@ func (s *Select) Fetch(v interface{}, args ...interface{}) error {
 	if err != nil {
 		return err
 	}
+	defer rows.Close()
 
 	vv := reflect.ValueOf(v)
 	if vv.Kind() == reflect.Ptr {

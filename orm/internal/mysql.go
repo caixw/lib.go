@@ -52,6 +52,7 @@ func (m *mysql) CreateTable(db core.DB, model *core.Model) error {
 	if err != nil {
 		return err
 	}
+	defer rows.Close()
 
 	if rows.Next() { // 存在指定的表名
 		return m.upgradeTable(db, model)
@@ -306,6 +307,7 @@ func (m *mysql) getCols(db core.DB, model *core.Model) (map[string]interface{}, 
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	dbCols, err := util.FetchColumnsString(false, "COLUMN_NAME", rows)
 	if err != nil {
@@ -323,11 +325,13 @@ func (m *mysql) getCols(db core.DB, model *core.Model) (map[string]interface{}, 
 
 // 删除表中的索引
 func (m *mysql) deleteIndexes(db core.DB, model *core.Model) error {
+	// 删除有中的标准约束：pk,fk,unique
 	sql := "SELECT CONSTRAINT_NAME, CONSTRAINT_TYPE FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA=? AND TABLE_NAME=?"
 	rows, err := db.Query(sql, db.Name(), model.Name)
 	if err != nil {
 		return err
 	}
+
 	mapped, err := util.Fetch2MapsString(false, rows)
 	if err != nil {
 		return err
@@ -348,12 +352,15 @@ func (m *mysql) deleteIndexes(db core.DB, model *core.Model) error {
 			return err
 		}
 	}
+	rows.Close()
 
+	// 删除表中的非标准索引：key index
 	sql = "SELECT `INDEX_NAME` FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA=? AND TABLE_NAME=?"
 	rows, err = db.Query(sql, db.Name(), model.Name)
 	if err != nil {
 		return err
 	}
+
 	indexes, err := util.FetchColumnsString(false, "INDEX_NAME", rows)
 	if err != nil {
 		return err
@@ -364,6 +371,7 @@ func (m *mysql) deleteIndexes(db core.DB, model *core.Model) error {
 			return err
 		}
 	}
+	rows.Close()
 
 	return nil
 }

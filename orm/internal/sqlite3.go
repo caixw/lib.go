@@ -52,6 +52,7 @@ func (s *sqlite3) CreateTable(db core.DB, m *core.Model) error {
 	if err != nil {
 		return err
 	}
+	defer rows.Close()
 
 	if rows.Next() {
 		return s.createTable(db, m)
@@ -79,4 +80,10 @@ func (s *sqlite3) createTable(db core.DB, m *core.Model) error {
 func (s *sqlite3) upgradeTable(db core.DB, m *core.Model) error {
 	// todo
 	return nil
+}
+
+func init() {
+	if err := core.RegisterDialect("sqlite3", &mysql{}); err != nil {
+		panic(err)
+	}
 }
