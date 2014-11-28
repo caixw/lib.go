@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
-package core
+package util
 
 import (
 	"database/sql"
@@ -169,13 +169,13 @@ func TestFetch2Objs(t *testing.T) {
 	a.NotError(Fetch2Objs(&array, rows))
 	a.Equal([1]*FetchUser{
 		&FetchUser{Id: 0, Email: "email-0"},
-	}, objs)
+	}, array)
 
 	// test7:obj为一个struct指针。
 	rows, err = db.Query(sql)
 	obj := FetchUser{}
 	a.NotError(Fetch2Objs(&obj, rows))
-	a.Equal(&FetchUser{Id: 0, Email: "email-0"}, obj)
+	a.Equal(FetchUser{Id: 0, Email: "email-0"}, obj)
 
 	// test8:obj为一个struct。这将返回错误信息
 	rows, err = db.Query(sql)

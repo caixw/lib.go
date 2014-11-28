@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/caixw/lib.go/orm/core"
+	"github.com/caixw/lib.go/orm/util"
 )
 
 type mysql struct{}
@@ -306,7 +307,7 @@ func (m *mysql) getCols(db core.DB, model *core.Model) (map[string]interface{}, 
 		return nil, err
 	}
 
-	dbCols, err := core.FetchColumnsString(false, "COLUMN_NAME", rows)
+	dbCols, err := util.FetchColumnsString(false, "COLUMN_NAME", rows)
 	if err != nil {
 		return nil, nil
 	}
@@ -327,7 +328,7 @@ func (m *mysql) deleteIndexes(db core.DB, model *core.Model) error {
 	if err != nil {
 		return err
 	}
-	mapped, err := core.Fetch2MapsString(false, rows)
+	mapped, err := util.Fetch2MapsString(false, rows)
 	if err != nil {
 		return err
 	}
@@ -353,7 +354,7 @@ func (m *mysql) deleteIndexes(db core.DB, model *core.Model) error {
 	if err != nil {
 		return err
 	}
-	indexes, err := core.FetchColumnsString(false, "INDEX_NAME", rows)
+	indexes, err := util.FetchColumnsString(false, "INDEX_NAME", rows)
 	if err != nil {
 		return err
 	}
