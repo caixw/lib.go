@@ -17,7 +17,7 @@ type Stmts struct {
 	db    DB
 }
 
-// 获得一个Stmts实例。
+// 声明一个Stmts实例。
 func NewStmts(d DB) *Stmts {
 	return &Stmts{
 		items: map[string]*sql.Stmt{},
@@ -90,6 +90,7 @@ func (s *Stmts) Get(name string) (stmt *sql.Stmt, found bool) {
 
 // 清除所有的缓存。
 func (s *Stmts) Clear() {
+	s.free()
 	s.items = map[string]*sql.Stmt{}
 }
 
@@ -97,5 +98,16 @@ func (s *Stmts) Clear() {
 // 与Clear()的区别在于：Close()之后，不能再次通过AddSQL()
 // 等函数添加新的缓存内容。
 func (s *Stmts) Close() {
+	s.free()
 	s.items = nil
+}
+
+// 释放所有的sql.Stmt实例。
+func (s *Stmts) free() {
+	s.Lock()
+	defer s.Unlock()
+
+	for _, stmt := range s.items {
+		stmt.Close()
+	}
 }

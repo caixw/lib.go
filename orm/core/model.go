@@ -16,7 +16,7 @@ import (
 	"github.com/caixw/lib.go/encoding/tag"
 )
 
-// go本身不支持struct级别的struct tag，所以要给一个struct
+// go本身不支持struct级别的struct tag，所以想要给一个struct
 // 指定struct tag，只能通过一个函数返回一段描述信息。
 type Metaer interface {
 	// 表级别的数据。如表名，存储引擎等：
@@ -24,7 +24,8 @@ type Metaer interface {
 	Meta() string
 }
 
-// Model 从struct tag中初始化的数据表模型。
+// 表示一个数据库的表模型。数据结构从字段和
+// 字段的struct tag中分析得出。
 type Model struct {
 	Name string
 
@@ -34,10 +35,10 @@ type Model struct {
 	FK            map[string]*ForeignKey // 外键
 	PK            []*Column              // 主键
 	AI            *AutoIncr              // 自增列
-	Check         map[string]string
+	Check         map[string]string      // Check
+	Meta          map[string][]string    // 表级别的元数据，如存储引擎，字符集等。
 
-	// 约束名缓存
-	constraints map[string]conType
+	constraints map[string]conType // 约束名缓存
 }
 
 // 外键
@@ -127,9 +128,11 @@ func NewModel(obj interface{}) (*Model, error) {
 		Name:          rtype.Name(),
 		FK:            map[string]*ForeignKey{},
 		Check:         map[string]string{},
+		Meta:          map[string][]string{},
 		constraints:   map[string]conType{},
 	}
 
+	// 依次分析字段
 	num := rtype.NumField()
 	for i := 0; i < num; i++ {
 		if err := m.parseColumn(rtype.Field(i)); err != nil {
@@ -137,28 +140,9 @@ func NewModel(obj interface{}) (*Model, error) {
 		}
 	}
 
-	// 分析meta数据
-	meta, ok := obj.(Metaer)
-	if !ok {
-		return m, nil
-	}
-	metas := tag.Parse(meta.Meta())
-	if len(metas) == 0 {
-		return m, nil
-	}
-	for k, v := range metas {
-		switch k {
-		case "name":
-			m.Name = v[0]
-		case "check":
-			if typ := m.hasConstraint(v[0]); typ != none {
-				return nil, fmt.Errorf("已经存在相同的约束名，位于[%v]中", typ)
-			}
-
-			m.constraints[v[0]] = check
-			m.Check[v[0]] = v[1]
-		default:
-		}
+	// 分析Meta接口
+	if err := m.parseMeta(obj); err != nil {
+		return nil, err
 	}
 
 	return m, nil
@@ -223,6 +207,50 @@ func (m *Model) parseColumn(field reflect.StructField) (err error) {
 	return nil
 }
 
+// 分析struct的meta接口属性。
+func (m *Model) parseMeta(obj interface{}) error {
+	meta, ok := obj.(Metaer)
+	if !ok {
+		return nil
+	}
+
+	tags := tag.Parse(meta.Meta())
+	if len(tags) == 0 {
+		return nil
+	}
+
+	for k, v := range tags {
+		switch k {
+		case "name":
+			if len(v) != 1 {
+				return fmt.Errorf("Meta接口的name属性指定了太多参数：[%v]", v)
+			}
+
+			m.Name = v[0]
+		case "check":
+			if len(v) != 2 {
+				return fmt.Errorf("Meta接口的check属性的参数只能为2个，当前值为:[%v]", v)
+			}
+
+			if _, found := m.Check[v[0]]; found {
+				return fmt.Errorf("已经存在相同名称[%v]的Check约束", v[0])
+			}
+
+			if typ := m.hasConstraint(v[0], check); typ != none {
+				return fmt.Errorf("已经存在相同的约束名[%v]，位于[%v]中", v[0], typ)
+			}
+
+			m.constraints[v[0]] = check
+			m.Check[v[0]] = v[1]
+		default:
+			m.Meta[k] = v
+		}
+	}
+
+	return nil
+}
+
+// 通过vals设置字段的default属性
 // default(5)
 func (m *Model) setDefault(col *Column, vals []string) error {
 	if m.AI.Col == col {
@@ -239,14 +267,15 @@ func (m *Model) setDefault(col *Column, vals []string) error {
 	return nil
 }
 
+// 通过vals设置字段的index约束
 // index(idx_name)
 func (m *Model) setIndex(col *Column, vals []string) error {
 	if len(vals) != 1 {
 		return fmt.Errorf("[%v]字段的index属性指定了太多的参数:[%v]", col.Name, vals)
 	}
 
-	if typ := m.hasConstraint(vals[0]); typ != none {
-		return fmt.Errorf("已经存在相同的约束名，位于[%v]中", typ)
+	if typ := m.hasConstraint(vals[0], index); typ != none {
+		return fmt.Errorf("已经存在相同的约束名[%v]，位于[%v]中", vals[0], typ)
 	}
 
 	m.constraints[vals[0]] = index
@@ -254,6 +283,7 @@ func (m *Model) setIndex(col *Column, vals []string) error {
 	return nil
 }
 
+// 通过vals设置字段的primark key约束
 // pk
 func (m *Model) setPK(col *Column, vals []string) error {
 	if len(vals) != 0 {
@@ -268,15 +298,15 @@ func (m *Model) setPK(col *Column, vals []string) error {
 	return nil
 }
 
-// 从vals中分析unique索引
+// 通过vals设置字段的unique约束
 // unique(unique_name)
 func (m *Model) setUnique(col *Column, vals []string) error {
 	if len(vals) != 1 {
 		return fmt.Errorf("[%v]字段的unique属性只能带一个参数:[%v]", col.Name, vals)
 	}
 
-	if typ := m.hasConstraint(vals[0]); typ != none {
-		return fmt.Errorf("已经存在相同的约束名，位于[%v]中", typ)
+	if typ := m.hasConstraint(vals[0], unique); typ != none {
+		return fmt.Errorf("已经存在相同的约束名[%v]，位于[%v]中", vals[0], typ)
 	}
 
 	m.constraints[vals[0]] = unique
@@ -285,11 +315,11 @@ func (m *Model) setUnique(col *Column, vals []string) error {
 	return nil
 }
 
-// 添加model的外键属性。
+// 通过vals设置字段的foregin key约束
 // fk(fk_name,refTable,refColName,updateRule,deleteRule)
 func (m *Model) setFK(col *Column, vals []string) error {
-	if typ := m.hasConstraint(vals[0]); typ != none {
-		return fmt.Errorf("已经存在相同的约束名，位于[%v]中", typ)
+	if typ := m.hasConstraint(vals[0], fk); typ != none {
+		return fmt.Errorf("已经存在相同的约束名[%v]，位于[%v]中", vals[0], typ)
 	}
 
 	if len(vals) < 3 {
@@ -318,7 +348,7 @@ func (m *Model) setFK(col *Column, vals []string) error {
 	return nil
 }
 
-// 修改或是添加Model的AI变量。
+// 通过vals设置Model的自增列。
 // ai(colName,start,step)
 func (m *Model) setAI(col *Column, vals []string) (err error) {
 	if col.Nullable {
@@ -353,9 +383,9 @@ func (m *Model) setAI(col *Column, vals []string) (err error) {
 
 // 是否存在指定名称的约束名，name不区分大小写。
 // 若已经存在返回表示该约束类型的常量，否则返回none。
-func (m *Model) hasConstraint(name string) conType {
+func (m *Model) hasConstraint(name string, except conType) conType {
 	// 约束名不区分大小写
-	if typ, found := m.constraints[strings.ToLower(name)]; found {
+	if typ, found := m.constraints[strings.ToLower(name)]; found && typ != except {
 		return typ
 	}
 

@@ -67,7 +67,6 @@ type conType int
 // 预定的约束类型，方便Model中使用。
 const (
 	none conType = iota
-	key
 	index
 	unique
 	fk
@@ -78,12 +77,10 @@ func (t conType) String() string {
 	switch t {
 	case none:
 		return "<none>"
-	case key:
-		return "KEY"
 	case index:
-		return "INDEX"
+		return "KEY INDEX"
 	case unique:
-		return "UNIQUE"
+		return "UNIQUE INDEX"
 	case fk:
 		return "FOREIGN KEY"
 	case check:

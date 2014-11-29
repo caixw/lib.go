@@ -12,11 +12,15 @@ import (
 
 type modelUser struct {
 	Id       int    `orm:"name(id);ai(1,2);"`
-	Email    string `orm:"unique(unique_index);nullable;"`
-	Username string `orm:"index(index)"`
-	Group    int    `orm:"name(group);"`
+	Email    string `orm:"unique(unique_name);index(index_name);nullable;"`
+	Username string `orm:"index(index_name)"`
+	Group    int    `orm:"name(group);fk(fk_name,table.group,id,NO ACTION,)"`
 
 	Regdate int `orm:"-"`
+}
+
+func (m *modelUser) Meta() string {
+	return "check(chk_name,id>5);engine(innodb);charset(utf-8)"
 }
 
 func TestModel(t *testing.T) {
@@ -36,15 +40,18 @@ func TestModel(t *testing.T) {
 	usernameCol, found := m.Cols["Username"]
 	a.True(found)
 
-	_, found = m.Cols["group"]
+	groupCol, found := m.Cols["group"]
 	a.True(found)
 
+	// 通过struct tag过滤掉的列
 	regdate, found := m.Cols["Regdate"]
 	a.False(found).Nil(regdate)
 
 	// index
-	index, found := m.KeyIndexes["index"]
-	a.True(found).Equal(usernameCol, index[0])
+	index, found := m.KeyIndexes["index_name"]
+	a.True(found).
+		Equal(emailCol, index[0]).
+		Equal(usernameCol, index[1])
 
 	// ai
 	a.Equal(m.AI.Col, idCol)
@@ -52,7 +59,25 @@ func TestModel(t *testing.T) {
 	// 主键应该和自增列相同
 	a.NotNil(m.PK).Equal(m.PK[0], idCol)
 
-	// unique_index
-	unique, found := m.UniqueIndexes["unique_index"]
+	// unique_name
+	unique, found := m.UniqueIndexes["unique_name"]
 	a.True(found).Equal(unique[0], emailCol)
+
+	fk, found := m.FK["fk_name"]
+	a.True(found).
+		Equal(fk.Col, groupCol).
+		Equal(fk.RefTableName, "table.group").
+		Equal(fk.RefColName, "id").
+		Equal(fk.UpdateRule, "NO ACTION").
+		Equal(fk.DeleteRule, "")
+
+	// check
+	chk, found := m.Check["chk_name"]
+	a.True(found).Equal(chk, "id>5")
+
+	// meta
+	a.Equal(m.Meta, map[string][]string{
+		"engine":  []string{"innodb"},
+		"charset": []string{"utf-8"},
+	})
 }

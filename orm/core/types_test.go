@@ -16,9 +16,8 @@ func TestConTypeString(t *testing.T) {
 	a := assert.New(t)
 
 	a.Equal("<none>", none.String()).
-		Equal("KEY", fmt.Sprint(key)).
-		Equal("INDEX", index.String()).
-		Equal("UNIQUE", unique.String()).
+		Equal("KEY INDEX", fmt.Sprint(index)).
+		Equal("UNIQUE INDEX", unique.String()).
 		Equal("FOREIGN KEY", fk.String()).
 		Equal("CHECK", check.String())
 
