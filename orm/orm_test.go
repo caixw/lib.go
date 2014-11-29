@@ -8,14 +8,13 @@ import (
 	"testing"
 
 	"github.com/caixw/lib.go/assert"
-	_ "github.com/caixw/lib.go/orm/core/dialecttest"
 )
 
 // 测试engines的一些常用操作：New,Get,Close,CloseAll
 func TestEngines(t *testing.T) {
 	a := assert.New(t)
 
-	e, err := New("mysql", "root:@/", "test", "test_")
+	e, err := New("fakedb2", "./test", "test", "test_")
 	a.NotError(err).NotNil(e)
 
 	// 不存在的实例
@@ -33,7 +32,7 @@ func TestEngines(t *testing.T) {
 
 	// 重新添加2个Engine
 
-	e, err = New("mysql", "root:@/", "test", "test_")
+	e, err = New("fakedb2", "./test", "test", "test_")
 	a.NotError(err).NotNil(e)
 
 	e, err = New("fakedb1", "root:@/", "fakedb1", "fakedb1_")

@@ -28,8 +28,6 @@ type Engine struct {
 	stmts  *core.Stmts
 }
 
-var _ core.DB = &Engine{}
-
 func newEngine(driverName, dataSourceName, prefix string) (*Engine, error) {
 	d, found := core.GetDialect(driverName)
 	if !found {
@@ -155,8 +153,6 @@ type Tx struct {
 	engine *Engine
 	tx     *sql.Tx
 }
-
-var _ core.DB = &Tx{}
 
 func (t *Tx) Name() string {
 	return t.engine.Name()

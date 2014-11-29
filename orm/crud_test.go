@@ -9,13 +9,10 @@ import (
 
 	"github.com/caixw/lib.go/assert"
 	"github.com/caixw/lib.go/orm/core"
-	_ "github.com/caixw/lib.go/orm/core/dialecttest" // 加载测试用例
-	_ "github.com/mattn/go-sqlite3"
 )
 
 func newDB() (core.DB, error) {
-	return newEngine("sqlite3", "./test.db", "prefix_")
-	//return newEngine("mysql", "root:@/", "prefix_")
+	return newEngine("fakedb1", "dataSourceName", "prefix_")
 }
 
 func TestwhereExpr(t *testing.T) {
@@ -75,7 +72,7 @@ func TestDelete(t *testing.T) {
 		And("username like ?", "%admin%").
 		OrIn("uid", 1, 2, 3, 4, 5).
 		AndBetween(`"group"`, 1, 10)
-	wont := "DELETE FROM prefix_user WHERE(username like ?) OR(uid IN(?,?,?,?,?)) AND(`group` BETWEEN ? AND ?)"
+	wont := "DELETE FROM prefix_user WHERE(username like ?) OR(uid IN(?,?,?,?,?)) AND([group] BETWEEN ? AND ?)"
 	a.StringEqual(d.sqlString(true), wont, style)
 }
 
@@ -93,7 +90,7 @@ func TestUpdate(t *testing.T) {
 		Columns("password", "username", `"group"`).
 		And("id=?").
 		Or(`"group"=?`)
-	wont := "UPDATE user SET password=?,username=?,`group`=? WHERE(id=?) OR(`group`=?)"
+	wont := "UPDATE user SET password=?,username=?,[group]=? WHERE(id=?) OR([group]=?)"
 	a.StringEqual(u.sqlString(true), wont, style)
 }
 
@@ -110,7 +107,7 @@ func TestInsert(t *testing.T) {
 	i.Table("table.user").
 		Columns("uid", "username", `"password"`).
 		Columns("group", "age")
-	wont := "INSERT INTO prefix_user(uid,username,`password`,group,age) VALUES(?,?,?,?,?)"
+	wont := "INSERT INTO prefix_user(uid,username,[password],group,age) VALUES(?,?,?,?,?)"
 	a.StringEqual(i.sqlString(true), wont, style).
 		Equal(len(i.vals), 0)
 }

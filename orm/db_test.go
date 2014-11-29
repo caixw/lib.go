@@ -8,8 +8,12 @@ import (
 	"testing"
 
 	"github.com/caixw/lib.go/assert"
-	_ "github.com/caixw/lib.go/orm/core/dialecttest"
+	"github.com/caixw/lib.go/orm/core"
 )
+
+// 判断接口继承
+var _ core.DB = &Engine{}
+var _ core.DB = &Tx{}
 
 func TestDBReplaceQuote(t *testing.T) {
 	a := assert.New(t)
