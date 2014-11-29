@@ -2,6 +2,10 @@
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
+// 本文件主要包含了types.go文件中声明的两个接口的测试实例：
+// Dialect:fakeDialect1,fakeDialect2;
+// DB:fakeDB.
+
 package core
 
 import (
@@ -29,57 +33,46 @@ func TestConTypeString(t *testing.T) {
 	a.Equal("<unknown>", c1.String())
 }
 
+type dialectBase struct {
+	/* data */
+}
+
+func (d *dialectBase) GetDBName(dataSource string) string {
+	return ""
+}
+func (d *dialectBase) CreateTable(db DB, m *Model) error {
+	return nil
+}
+
+func (d *dialectBase) LimitSQL(limit, offset int) (string, []interface{}) {
+	return "", nil
+}
+
+func (d *dialectBase) SupportLastInsertId() bool {
+	return true
+}
+
 // fakeDialect1
 type fakeDialect1 struct {
+	dialectBase
 }
 
 var _ Dialect = &fakeDialect1{}
-
-func (t *fakeDialect1) GetDBName(dataSource string) string {
-	return ""
-}
 
 func (t *fakeDialect1) QuoteStr() (string, string) {
 	return "[", "]"
 }
 
-func (t *fakeDialect1) CreateTable(db DB, m *Model) error {
-	return nil
-}
-
-func (t *fakeDialect1) LimitSQL(limit, offset int) (string, []interface{}) {
-	return "", nil
-}
-
-func (t *fakeDialect1) SupportLastInsertId() bool {
-	return true
-}
-
 // fakeDialect2
 type fakeDialect2 struct {
+	dialectBase
 	num int
 }
 
 var _ Dialect = &fakeDialect2{}
 
-func (t *fakeDialect2) GetDBName(dataSource string) string {
-	return ""
-}
-
 func (t *fakeDialect2) QuoteStr() (string, string) {
 	return "{", "}"
-}
-
-func (t *fakeDialect2) CreateTable(db DB, m *Model) error {
-	return nil
-}
-
-func (t *fakeDialect2) LimitSQL(limit, offset int) (string, []interface{}) {
-	return "", nil
-}
-
-func (t *fakeDialect2) SupportLastInsertId() bool {
-	return true
 }
 
 // fakeDB

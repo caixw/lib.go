@@ -176,15 +176,27 @@ func fetchObjToSlice(val reflect.Value, rows *sql.Rows) error {
 	return nil
 }
 
-// 将rows中的数据导出到obj中。obj可以是以下三种类型的值：
+// 将rows中的数据导出到obj中。obj只有在类型为slice指针时，才有可能
+// 随着rows的长度变化，否则其长度是固定的，具体可以为以下四种类型：
 //
-// struct指针：将rows中的第一条记录转换成obj对象。
+// struct指针：
+// 将rows中的第一条记录转换成obj对象。
 //
-// struct数组：将rows中的len(obj)条记录导出到obj对象中；
-// 若rows中的数量不足，则obj尾部的元素保存原来的值。
+// struct array指针或是struct slice:
+// 将rows中的len(obj)条记录导出到obj对象中；若rows中的数量不足，
+// 则obj尾部的元素保存原来的值。
 //
-// struct数组指针：将rows中的所有记录依次写入obj中。若rows
-// 中的记录比len(obj)要长，则会增长obj的长度以适应rows的所有记录。
+// struct slice指针：
+// 将rows中的所有记录依次写入obj中。若rows中的记录比len(obj)要长，
+// 则会增长obj的长度以适应rows的所有记录。
+//
+// struct可以在struct tag中用name指定字段名称，或是以减号(-)开头
+// 表示忽略该字段的导出：
+//  type user struct {
+//      ID    int `orm:"name(id)"`  // 对应rows中的id字段，而不是ID。
+//      age   int `orm:"name(Age)"` // 小写不会被导出。
+//      Count int `orm:"-"`         // 不会匹配与该字段对应的列。
+//  }
 func Fetch2Objs(obj interface{}, rows *sql.Rows) (err error) {
 	val := reflect.ValueOf(obj)
 
@@ -192,16 +204,16 @@ func Fetch2Objs(obj interface{}, rows *sql.Rows) (err error) {
 	case reflect.Ptr:
 		elem := val.Elem()
 		switch elem.Kind() {
-		case reflect.Slice:
+		case reflect.Slice: // slice指针，可以增长
 			return fetchObjToSlice(val, rows)
-		case reflect.Array:
+		case reflect.Array: // 数组指针，只能按其大小导出
 			return fetchObjToFixedSlice(elem, rows)
-		case reflect.Struct:
+		case reflect.Struct: // 结构指针，只能导出一个
 			return fetchOnceObj(elem, rows)
 		default:
 			return fmt.Errorf("不允许的数据类型：[%v]", val.Kind())
 		}
-	case reflect.Slice:
+	case reflect.Slice: // slice只能按其大小导出。
 		return fetchObjToFixedSlice(val, rows)
 	default:
 		return fmt.Errorf("不允许的数据类型：[%v]", val.Kind())
