@@ -15,6 +15,8 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+const testDBFile = "./test.db"
+
 type FetchUser struct {
 	Id       int    `orm:"name(id);ai(1,2);"`
 	Email    string `orm:"unique(unique_index);nullable;pk(pk_name)"`
@@ -56,7 +58,7 @@ func TestParseObj(t *testing.T) {
 
 // 初始化一个sql.DB(sqlite3)，方便后面的测试用例使用。
 func initDB(a *assert.Assertion) *sql.DB {
-	db, err := sql.Open("sqlite3", "./testdata/test")
+	db, err := sql.Open("sqlite3", testDBFile)
 	a.NotError(err).NotNil(db)
 
 	/* 创建表 */
@@ -88,8 +90,8 @@ func initDB(a *assert.Assertion) *sql.DB {
 // 关闭sql.DB(sqlite3)的数据库连结。
 func closeDB(db *sql.DB, a *assert.Assertion) {
 	a.NotError(db.Close()).
-		NotError(os.Remove("./testdata/test")).
-		FileNotExists("./testdata/test")
+		NotError(os.Remove(testDBFile)).
+		FileNotExists(testDBFile)
 }
 
 func TestFetch2Objs(t *testing.T) {
