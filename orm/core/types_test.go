@@ -7,6 +7,7 @@ package core
 import (
 	"database/sql"
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/caixw/lib.go/assert"
@@ -83,6 +84,23 @@ func (t *fakeDialect2) SupportLastInsertId() bool {
 
 // fakeDB
 type fakeDB struct {
+	db *sql.DB
+}
+
+func newFakeDB() (*fakeDB, error) {
+	db, err := sql.Open("sqlite3", "./test.db")
+	if err != nil {
+		return nil, err
+	}
+
+	return &fakeDB{
+		db: db,
+	}, nil
+}
+
+func (f *fakeDB) close() {
+	f.db.Close()
+	os.Remove("./test.db")
 }
 
 func (f *fakeDB) Name() string {
@@ -91,7 +109,7 @@ func (f *fakeDB) Name() string {
 
 // stmts仅用到了Prepare接口函数
 func (f *fakeDB) Prepare(str string) (*sql.Stmt, error) {
-	return &sql.Stmt{}, nil
+	return f.db.Prepare(str)
 }
 
 func (f *fakeDB) GetStmts() *Stmts {

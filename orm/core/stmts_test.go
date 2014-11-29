@@ -10,18 +10,20 @@ import (
 	"testing"
 
 	"github.com/caixw/lib.go/assert"
-	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 func TestStmtsAddSet(t *testing.T) {
 	a := assert.New(t)
 
-	db := &fakeDB{}
+	db, err := newFakeDB()
+	a.NotError(err).NotNil(db)
+	defer db.close()
 
 	s := NewStmts(db)
 	a.NotNil(s)
 
-	sql := "SELECT * FROM user WHERE 1"
+	sql := "SELECT * FROM sqlite_master WHERE 1"
 	sqlStmt, err := db.Prepare(sql)
 	a.NotError(err).NotNil(sqlStmt)
 
@@ -70,10 +72,14 @@ func TestStmtsAddSet(t *testing.T) {
 func TestStmtsAddSetSQL(t *testing.T) {
 	a := assert.New(t)
 
-	s := NewStmts(&fakeDB{})
+	db, err := newFakeDB()
+	a.NotError(err).NotNil(db)
+	defer db.close()
+
+	s := NewStmts(db)
 	a.NotNil(s)
 
-	sql := "SELECT * FROM user WHERE 1"
+	sql := "SELECT * FROM sqlite_master WHERE 1"
 	stmt, err := s.AddSQL("sql1", sql)
 	a.NotError(err).
 		NotNil(stmt).
