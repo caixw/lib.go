@@ -7,6 +7,8 @@ package internal
 import (
 	"bytes"
 	"os"
+	"reflect"
+	"runtime"
 	"strings"
 
 	"github.com/caixw/lib.go/orm/core"
@@ -29,10 +31,13 @@ func (s *sqlite3) GetDBName(dataSource string) string {
 	// 取得最后个路径分隔符的位置，无论是否存在分隔符，用++
 	// 表达式都正好能表示文件名开始的位置。
 	start := strings.LastIndex(dataSource, string(os.PathSeparator))
+	if start < 0 && runtime.GOOS == "windows" { // windows下可以使用/
+		start = strings.LastIndex(dataSource, "/")
+	}
 	start++
 	end := strings.LastIndex(dataSource, ".")
 
-	if end < start {
+	if end < start { // 不存在扩展名，取全部文件名
 		return dataSource[start:]
 	}
 	return dataSource[start:end]
@@ -69,7 +74,12 @@ func (s *sqlite3) quote(buf *bytes.Buffer, sql string) {
 
 // implement base.sqlType()
 func (s *sqlite3) sqlType(buf *bytes.Buffer, col *core.Column) {
-	//
+	switch col.GoType.Kind() {
+	case reflect.String:
+		buf.WriteString("TEXT")
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		buf.WriteString("INTEGER")
+	}
 }
 
 func (s *sqlite3) createTable(db core.DB, m *core.Model) error {

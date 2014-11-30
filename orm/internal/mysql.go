@@ -19,12 +19,15 @@ type mysql struct{}
 
 // implement core.Dialect.GetDBName()
 func (m *mysql) GetDBName(dataSource string) string {
-	index := strings.LastIndex(dataSource, "/")
-	if index < 0 {
-		return ""
+	start := strings.LastIndex(dataSource, "/")
+
+	start++
+	end := strings.LastIndex(dataSource, "?")
+	if start > end { // 不存在参数
+		return dataSource[start:]
 	}
 
-	return dataSource[index+1:]
+	return dataSource[start:end]
 }
 
 // implement core.Dialect.Quote
@@ -46,6 +49,12 @@ func (m *mysql) SupportLastInsertId() bool {
 func (m *mysql) CreateTable(db core.DB, model *core.Model) error {
 	// 处理表名前缀问题
 	model.Name = db.ReplacePrefix(model.Name)
+	if model.FK != nil { // 去外键引用表名的虚前缀
+		for _, fk := range model.FK {
+			fk.RefTableName = db.ReplacePrefix(fk.RefTableName)
+		}
+
+	}
 
 	sql := "SELECT `TABLE_NAME` FROM `INFORMATION_SCHEMA`.`TABLES` WHERE `TABLE_SCHEMA`=? and `TABLE_NAME`=?"
 	rows, err := db.Query(sql, db.Name(), model.Name)
@@ -141,7 +150,7 @@ func (m *mysql) createTable(db core.DB, model *core.Model) error {
 
 	// 写入字段信息
 	for _, col := range model.Cols {
-		createColSQL(buf, col, m)
+		createColSQL(m, buf, col)
 
 		if col.IsAI() {
 			buf.WriteString(" AUTO_INCRMENT")
@@ -151,25 +160,25 @@ func (m *mysql) createTable(db core.DB, model *core.Model) error {
 
 	// PK
 	if len(model.PK) > 0 {
-		createPKSQL(buf, model.PK, "pk", m)
+		createPKSQL(m, buf, model.PK, "pk")
 		buf.WriteByte(',')
 	}
 
 	// Unique Index
 	for name, index := range model.UniqueIndexes {
-		createUniqueSQL(buf, index, name, m)
+		createUniqueSQL(m, buf, index, name)
 		buf.WriteByte(',')
 	}
 
 	// foreign  key
 	for name, fk := range model.FK {
 		fk.RefTableName = db.ReplacePrefix(fk.RefTableName)
-		createFKSQL(buf, fk, name, m)
+		createFKSQL(m, buf, fk, name)
 	}
 
 	// Check
 	for name, chk := range model.Check {
-		createCheckSQL(buf, chk, name, m)
+		createCheckSQL(m, buf, chk, name)
 	}
 
 	// key index不存在CONSTRAINT形式的语句
@@ -210,7 +219,7 @@ func (m *mysql) upgradeTable(db core.DB, model *core.Model) error {
 		return err
 	}
 
-	if err := addIndexes(db, model, m); err != nil {
+	if err := addIndexes(m, db, model); err != nil {
 		return err
 	}
 
@@ -243,7 +252,7 @@ func (m *mysql) upgradeTable(db core.DB, model *core.Model) error {
 	// ALTER TABLE document MODIFY COLUMN document_id INT auto_increment
 	buf.Truncate(size)
 	buf.WriteString(" MODIFY COLUMN ")
-	createColSQL(buf, model.AI.Col, m)
+	createColSQL(m, buf, model.AI.Col)
 	buf.WriteString(" PRIMARY KEY AUTO_INCREMENT")
 	_, err := db.Exec(buf.String())
 	return err
@@ -274,7 +283,7 @@ func (m *mysql) upgradeCols(db core.DB, model *core.Model) error {
 			delete(dbColsMap, colName)
 		}
 
-		createColSQL(buf, col, m)
+		createColSQL(m, buf, col)
 
 		if _, err := db.Exec(buf.String()); err != nil {
 			return err
