@@ -110,14 +110,15 @@ func (c *Column) setNullable(vals []string) (err error) {
 	return nil
 }
 
-// 从一个obj声明一个Model实例
+// 从一个obj声明一个Model实例。
+// obj可以是一个struct实例或是指针。
 func NewModel(obj interface{}) (*Model, error) {
-	rtype := reflect.TypeOf(obj)
-	if rtype.Kind() == reflect.Ptr {
-		rtype = rtype.Elem()
+	rval := reflect.ValueOf(obj)
+	if rval.Kind() == reflect.Ptr {
+		rval = rval.Elem()
 	}
 
-	if rtype.Kind() != reflect.Struct {
+	if rval.Kind() != reflect.Struct {
 		return nil, errors.New("obj参数只能是struct或是struct指针")
 	}
 
@@ -125,19 +126,15 @@ func NewModel(obj interface{}) (*Model, error) {
 		Cols:          map[string]*Column{},
 		KeyIndexes:    map[string][]*Column{},
 		UniqueIndexes: map[string][]*Column{},
-		Name:          rtype.Name(),
+		Name:          rval.Type().Name(),
 		FK:            map[string]*ForeignKey{},
 		Check:         map[string]string{},
 		Meta:          map[string][]string{},
 		constraints:   map[string]conType{},
 	}
 
-	// 依次分析字段
-	num := rtype.NumField()
-	for i := 0; i < num; i++ {
-		if err := m.parseColumn(rtype.Field(i)); err != nil {
-			return nil, err
-		}
+	if err := m.parseColumns(rval); err != nil {
+		return nil, err
 	}
 
 	// 分析Meta接口
@@ -146,6 +143,26 @@ func NewModel(obj interface{}) (*Model, error) {
 	}
 
 	return m, nil
+}
+
+// 将rval中的结构解析到m中。支持匿名字段
+func (m *Model) parseColumns(rval reflect.Value) error {
+	rtype := rval.Type()
+	num := rtype.NumField()
+	for i := 0; i < num; i++ {
+		field := rtype.Field(i)
+
+		if field.Anonymous {
+			m.parseColumns(rval.Field(i))
+			continue
+		}
+
+		if err := m.parseColumn(field); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // 分析一个字段。
@@ -207,7 +224,7 @@ func (m *Model) parseColumn(field reflect.StructField) (err error) {
 	return nil
 }
 
-// 分析struct的meta接口属性。
+// 分析struct的meta接口数据。
 func (m *Model) parseMeta(obj interface{}) error {
 	meta, ok := obj.(Metaer)
 	if !ok {

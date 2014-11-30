@@ -10,11 +10,16 @@ import (
 	"github.com/caixw/lib.go/assert"
 )
 
+type modelGroup struct {
+	Group int `orm:"name(group);fk(fk_name,table.group,id,NO ACTION,)"`
+}
+
 type modelUser struct {
+	modelGroup
+
 	Id       int    `orm:"name(id);ai(1,2);"`
 	Email    string `orm:"unique(unique_name);index(index_name);nullable;"`
 	Username string `orm:"index(index_name)"`
-	Group    int    `orm:"name(group);fk(fk_name,table.group,id,NO ACTION,)"`
 
 	Regdate int `orm:"-"`
 }
