@@ -128,7 +128,8 @@ func fetchObjToFixedSlice(val reflect.Value, rows *sql.Rows) error {
 	return nil
 }
 
-// 将rows中的记录导出到val中，val必须为slice的指针。
+// 将rows中的所有记录导出到val中，val必须为slice的指针。
+// 若val的长度不够，会根据rows中的长度调整。
 func fetchObjToSlice(val reflect.Value, rows *sql.Rows) error {
 	elem := val.Elem()
 
@@ -221,8 +222,8 @@ func Fetch2Objs(obj interface{}, rows *sql.Rows) (err error) {
 	return nil
 }
 
-// 将rows中的数据导出到map[string]interface{}中。
-// 若once值为true，则只导出第一条数据。返回的map长度为1
+// 将rows中的所有或一行数据导出到map[string]interface{}中。
+// 若once值为true，则只导出第一条数据。
 func Fetch2Maps(once bool, rows *sql.Rows) ([]map[string]interface{}, error) {
 	cols, err := rows.Columns()
 	if err != nil {
@@ -261,7 +262,7 @@ func Fetch2Maps(once bool, rows *sql.Rows) ([]map[string]interface{}, error) {
 }
 
 // 将rows中的数据导出到一个map[string]string中。
-// 功能上与Fetch2Maps()上一样，但map的值固定为string，方便特殊情况下使用。
+// 功能上与Fetch2Maps()上一样，但map的键值固定为string。
 func Fetch2MapsString(once bool, rows *sql.Rows) (data []map[string]string, err error) {
 	cols, err := rows.Columns()
 	if err != nil {
@@ -293,9 +294,9 @@ func Fetch2MapsString(once bool, rows *sql.Rows) (data []map[string]string, err 
 	return data, nil
 }
 
-// 导出rows中某列的数据。
+// 导出rows中某列的所有或一行数据。
 // once若为true，则只导出第一条数据的指定列。
-// colName 指定需要导出的列名，若不指定了不存在的名称，返回error；
+// colName指定需要导出的列名，若不指定了不存在的名称，返回error；
 func FetchColumns(once bool, colName string, rows *sql.Rows) ([]interface{}, error) {
 	cols, err := rows.Columns()
 	if err != nil {
@@ -332,7 +333,8 @@ func FetchColumns(once bool, colName string, rows *sql.Rows) ([]interface{}, err
 	return data, nil
 }
 
-// 导出rows中某列的所有数据。功能同FetchColumns()，除了返回的是字符串数组以外。
+// 导出rows中某列的所有或是一行数据。
+// 除了返回的为[]string以外，其它功能同FetchColumns()。
 func FetchColumnsString(once bool, colName string, rows *sql.Rows) ([]string, error) {
 	cols, err := rows.Columns()
 	if err != nil {

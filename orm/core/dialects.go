@@ -55,15 +55,16 @@ func IsRegistedDialect(name string) bool {
 }
 
 // 所有已经注册的Dialect名称列表
-func RegistedDialects() (ds []string) {
+func RegistedDialects() []string {
 	dialects.Lock()
 	defer dialects.Unlock()
 
+	ds := make([]string, 0, len(dialects.items))
 	for k, _ := range dialects.items {
 		ds = append(ds, k)
 	}
 
-	return
+	return ds
 }
 
 // 获取一个Dialect
