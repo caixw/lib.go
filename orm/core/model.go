@@ -10,11 +10,20 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"unicode"
 
 	"github.com/caixw/lib.go/conv"
 	"github.com/caixw/lib.go/encoding/tag"
 )
+
+// model缓存
+var models = &modelsMap{items: map[reflect.Type]*Model{}}
+
+type modelsMap struct {
+	sync.Mutex
+	items map[reflect.Type]*Model
+}
 
 // go本身不支持struct级别的struct tag，所以想要给一个struct
 // 指定struct tag，只能通过一个函数返回一段描述信息。
@@ -27,7 +36,7 @@ type Metaer interface {
 // 表示一个数据库的表模型。数据结构从字段和
 // 字段的struct tag中分析得出。
 type Model struct {
-	Name string
+	Name string // 表的名称
 
 	Cols          map[string]*Column     // 所有的列
 	KeyIndexes    map[string][]*Column   // 索引列
@@ -104,7 +113,7 @@ func (c *Column) setNullable(vals []string) (err error) {
 			return err
 		}
 	default:
-		return fmt.Errorf("[%v]字段的nullable属性指定了太多的值:[]", c.Name, vals)
+		return fmt.Errorf("[%v]字段的nullable属性指定了太多的值:[%v]", c.Name, vals)
 	}
 
 	return nil
@@ -113,20 +122,29 @@ func (c *Column) setNullable(vals []string) (err error) {
 // 从一个obj声明一个Model实例。
 // obj可以是一个struct实例或是指针。
 func NewModel(obj interface{}) (*Model, error) {
+	models.Lock()
+	defer models.Unlock()
+
 	rval := reflect.ValueOf(obj)
 	if rval.Kind() == reflect.Ptr {
 		rval = rval.Elem()
 	}
+	rtype := rval.Type()
 
-	if rval.Kind() != reflect.Struct {
+	if rtype.Kind() != reflect.Struct {
 		return nil, errors.New("obj参数只能是struct或是struct指针")
+	}
+
+	// 是否已经缓存的数组
+	if m, found := models.items[rtype]; found {
+		return m, nil
 	}
 
 	m := &Model{
 		Cols:          map[string]*Column{},
 		KeyIndexes:    map[string][]*Column{},
 		UniqueIndexes: map[string][]*Column{},
-		Name:          rval.Type().Name(),
+		Name:          rtype.Name(),
 		FK:            map[string]*ForeignKey{},
 		Check:         map[string]string{},
 		Meta:          map[string][]string{},
@@ -137,11 +155,11 @@ func NewModel(obj interface{}) (*Model, error) {
 		return nil, err
 	}
 
-	// 分析Meta接口
 	if err := m.parseMeta(obj); err != nil {
 		return nil, err
 	}
 
+	models.items[rtype] = m
 	return m, nil
 }
 
@@ -407,4 +425,12 @@ func (m *Model) hasConstraint(name string, except conType) conType {
 	}
 
 	return none
+}
+
+// 释放所有的Model缓存。
+func FreeModels() {
+	models.Lock()
+	defer models.Unlock()
+
+	models.items = map[reflect.Type]*Model{}
 }

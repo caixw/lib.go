@@ -219,7 +219,6 @@ func Fetch2Objs(obj interface{}, rows *sql.Rows) (err error) {
 	default:
 		return fmt.Errorf("不允许的数据类型：[%v]", val.Kind())
 	}
-	return nil
 }
 
 // 将rows中的所有或一行数据导出到map[string]interface{}中。

@@ -28,6 +28,33 @@ func (m *modelUser) Meta() string {
 	return "check(chk_name,id>5);engine(innodb);charset(utf-8)"
 }
 
+func TestModels(t *testing.T) {
+	a := assert.New(t)
+
+	FreeModels()
+	a.Equal(0, len(models.items))
+
+	m, err := NewModel(&modelUser{})
+	a.NotError(err).
+		NotNil(m).
+		Equal(1, len(models.items))
+
+	// 相同的model实例，不会增加数量
+	m, err = NewModel(&modelUser{})
+	a.NotError(err).
+		NotNil(m).
+		Equal(1, len(models.items))
+
+	// 添加新的model
+	m, err = NewModel(&modelGroup{})
+	a.NotError(err).
+		NotNil(m).
+		Equal(2, len(models.items))
+
+	FreeModels()
+	a.Equal(0, len(models.items))
+}
+
 func TestModel(t *testing.T) {
 	a := assert.New(t)
 

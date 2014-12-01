@@ -50,16 +50,19 @@ func newEngine(driverName, dataSourceName, prefix string) (*Engine, error) {
 	return inst, nil
 }
 
+// 对orm/core.DB的实现，返回当前操作的数据库名称。
 func (e *Engine) Name() string {
 	return e.name
 }
 
+// 对orm/core.DB.GetStmts的实现，返回当前的sql.Stmt实例缓存容器。
 func (e *Engine) GetStmts() *core.Stmts {
 	return e.stmts
 }
 
 var replaceQuoteExpr = regexp.MustCompile(`("{1})([^\.\*," ]+)("{1})`)
 
+// 对orm/core.DB.ReplaceQuote的实现。
 // 替换语句中的双引号为指定的符号。
 // 若sql的值中包含双引号也会被替换，所以所有的值只能是占位符。
 func (e *Engine) ReplaceQuote(sql string) string {
@@ -67,6 +70,7 @@ func (e *Engine) ReplaceQuote(sql string) string {
 	return replaceQuoteExpr.ReplaceAllString(sql, left+"$2"+right)
 }
 
+// 对orm/core.DB.ReplacePrefix()的实现。
 // 若table字符串是以tablePrefix指定的值开头的，则将其值替换成
 // Engine.prefix的值，否则原样返回。示例如下：
 //  `table.user`        => prefix_user
@@ -79,22 +83,28 @@ func (e *Engine) ReplacePrefix(table string) string {
 	return table
 }
 
+// 对orm/core.DB.Dialect()的实现。返回当前数据库对应的Dialect
 func (e *Engine) Dialect() core.Dialect {
 	return e.d
 }
 
+// 对orm/core.DB.Exec()的实现。执行一条非查询的SQL语句。
 func (e *Engine) Exec(sql string, args ...interface{}) (sql.Result, error) {
 	return e.db.Exec(sql, args...)
 }
 
+// 对orm/core.DB.Query()的实现，执行一条查询语句。
 func (e *Engine) Query(sql string, args ...interface{}) (*sql.Rows, error) {
 	return e.db.Query(sql, args...)
 }
 
+// 对orm/core.DB.QueryRow()的实现。
+// 执行一条查询语句，并返回第一条符合条件的记录。
 func (e *Engine) QueryRow(sql string, args ...interface{}) *sql.Row {
 	return e.db.QueryRow(sql, args...)
 }
 
+// 对orm/core.DB.Prepare()的实现。预处理SQL语句成sql.Stmt实例。
 func (e *Engine) Prepare(sql string) (*sql.Stmt, error) {
 	return e.db.Prepare(sql)
 }
