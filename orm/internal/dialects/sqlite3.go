@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
-package internal
+package dialects
 
 import (
 	"bytes"
@@ -77,8 +77,17 @@ func (s *sqlite3) sqlType(buf *bytes.Buffer, col *core.Column) {
 	switch col.GoType.Kind() {
 	case reflect.String:
 		buf.WriteString("TEXT")
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		buf.WriteString("INTEGER")
+	case reflect.Float32, reflect.Float64:
+		buf.WriteString("REAL")
+	case reflect.Struct:
+		// todo
+	case reflect.Array:
+		// todo
+	case reflect.Slice:
+		// todo
 	}
 }
 

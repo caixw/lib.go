@@ -9,7 +9,7 @@ import (
 	"sync"
 
 	// 加载预定义的dialect
-	_ "github.com/caixw/lib.go/orm/internal"
+	_ "github.com/caixw/lib.go/orm/internal/dialects"
 )
 
 type engineMap struct {

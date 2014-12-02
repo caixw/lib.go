@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
-package internal
+package dialects
 
 import (
 	"bytes"
@@ -191,13 +191,13 @@ func (m *mysql) createTable(db core.DB, model *core.Model) error {
 				m.quote(buf, col.Name)
 				buf.WriteByte(',')
 			}
-			buf.UnreadByte() // 去掉最后的逗号
+			buf.Truncate(buf.Len() - 1) // 去掉最后的逗号
 			buf.WriteString("),")
 		}
 	}
 
-	buf.UnreadByte()   // 去掉最后的逗号
-	buf.WriteByte(')') // end CreateTable
+	buf.Truncate(buf.Len() - 1) // 去掉最后的逗号
+	buf.WriteByte(')')          // end CreateTable
 
 	// 指定起始ai
 	if (model.AI != nil) && (model.AI.Start > 1) {
@@ -237,7 +237,7 @@ func (m *mysql) upgradeTable(db core.DB, model *core.Model) error {
 			buf.WriteString(col.Name)
 			buf.WriteByte(',')
 		}
-		buf.UnreadByte()
+		buf.Truncate(buf.Len() - 1)
 		buf.WriteByte(')')
 
 		if _, err := db.Exec(buf.String()); err != nil {
