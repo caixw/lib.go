@@ -51,18 +51,34 @@ func (s *sqlite3) LimitSQL(limit, offset int) (sql string, args []interface{}) {
 // implement core.Dialect.CreateTable()
 func (s *sqlite3) CreateTable(db core.DB, m *core.Model) error {
 	m.Name = db.ReplacePrefix(m.Name)
+	if m.FK != nil { // 去外键引用表名的虚前缀
+		for _, fk := range m.FK {
+			fk.RefTableName = db.ReplacePrefix(fk.RefTableName)
+		}
 
-	sql := "SELECT * FROM sqlite_master WHERE type='table' AND name=?"
-	rows, err := db.Query(sql, m.Name)
+	}
+
+	has, err := s.hasTable(db, m.Name)
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
 
-	if rows.Next() {
+	if has {
 		return s.createTable(db, m)
 	}
 	return s.upgradeTable(db, m)
+}
+
+// 是否存在指定名称的表
+func (s *sqlite3) hasTable(db core.DB, tableName string) (bool, error) {
+	sql := "SELECT * FROM sqlite_master WHERE type='table' AND name=?"
+	rows, err := db.Query(sql, tableName)
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+
+	return rows.Next(), nil
 }
 
 // implement base.quote()
@@ -73,6 +89,7 @@ func (s *sqlite3) quote(buf *bytes.Buffer, sql string) {
 }
 
 // implement base.sqlType()
+// 具体规则参照:http://www.sqlite.org/datatype3.html
 func (s *sqlite3) sqlType(buf *bytes.Buffer, col *core.Column) {
 	switch col.GoType.Kind() {
 	case reflect.String:
@@ -82,23 +99,157 @@ func (s *sqlite3) sqlType(buf *bytes.Buffer, col *core.Column) {
 		buf.WriteString("INTEGER")
 	case reflect.Float32, reflect.Float64:
 		buf.WriteString("REAL")
+	case reflect.Array, reflect.Slice:
+		k := col.GoType.Elem().Kind()
+		if (k != reflect.Int8) && (k != reflect.Int32) {
+			panic("不支持数组类型")
+		}
+		buf.WriteString("TEXT")
 	case reflect.Struct:
-		// todo
-	case reflect.Array:
-		// todo
-	case reflect.Slice:
-		// todo
+		switch col.GoType {
+		case nullBool:
+			buf.WriteString("INTEGER")
+		case nullFloat64:
+			buf.WriteString("REAL")
+		case nullInt64:
+			buf.WriteString("INTEGER")
+		case nullString:
+			buf.WriteString("TEXT")
+		case timeType:
+			buf.WriteString("DATETIME")
+		}
 	}
 }
 
-func (s *sqlite3) createTable(db core.DB, m *core.Model) error {
-	// todo
-	return nil
+// 创建表
+func (s *sqlite3) createTable(db core.DB, model *core.Model) error {
+	buf := bytes.NewBufferString("CREATE TABLE IF NOT EXISTS ")
+	buf.Grow(300)
+
+	buf.WriteString(db.ReplacePrefix(model.Name))
+	buf.WriteByte('(')
+
+	// 写入字段信息
+	for _, col := range model.Cols {
+		createColSQL(s, buf, col)
+
+		if col.IsAI() {
+			buf.WriteString(" AUTOINCRMENT")
+		}
+		buf.WriteByte(',')
+	}
+
+	// PK
+	if len(model.PK) > 0 {
+		createPKSQL(s, buf, model.PK, "pk")
+		buf.WriteByte(',')
+	}
+
+	// Unique Index
+	for name, index := range model.UniqueIndexes {
+		createUniqueSQL(s, buf, index, name)
+		buf.WriteByte(',')
+	}
+
+	// foreign  key
+	for name, fk := range model.FK {
+		fk.RefTableName = db.ReplacePrefix(fk.RefTableName)
+		createFKSQL(s, buf, fk, name)
+	}
+
+	// Check
+	for name, chk := range model.Check {
+		createCheckSQL(s, buf, chk, name)
+	}
+
+	// TODO(caixw) sqlite3存在keyindex?
+	if len(model.KeyIndexes) == 0 {
+		for name, index := range model.KeyIndexes {
+			buf.WriteString("INDEX ")
+			s.quote(buf, name)
+			buf.WriteByte('(')
+			for _, col := range index {
+				s.quote(buf, col.Name)
+				buf.WriteByte(',')
+			}
+			buf.Truncate(buf.Len() - 1) // 去掉最后的逗号
+			buf.WriteString("),")
+		}
+	}
+
+	buf.Truncate(buf.Len() - 1) // 去掉最后的逗号
+	buf.WriteByte(')')          // end CreateTable
+
+	_, err := db.Exec(buf.String())
+	return err
 }
 
-func (s *sqlite3) upgradeTable(db core.DB, m *core.Model) error {
-	// todo
-	return nil
+// 更新表。sqlite3并没有更改列类型的方法，只能采取官网说的方法来实现：
+// http://www.sqlite.org/lang_altertable.html
+func (s *sqlite3) upgradeTable(db core.DB, model *core.Model) error {
+	// 关闭外键
+	if _, err := db.Exec("PRAGMA foreign_keys=OFF"); err != nil {
+		return err
+	}
+
+	tmpName, err := s.rename(db, model.Name)
+	if err != nil {
+		return err
+	}
+
+	if err := s.createTable(db, model); err != nil {
+		return err
+	}
+
+	// 从tmpName表中导出数据到model.Name表中
+	// "INSERT INTO ?(cols...) SELECT cols FROM ?"
+	cols := make([]string, 0, len(model.Cols))
+	for colName, _ := range model.Cols {
+		cols = append(cols, colName)
+	}
+	colsSQL := strings.Join(cols, ",")
+	buf := bytes.NewBufferString("INSERT INTO ?(")
+	buf.WriteString(colsSQL)
+	buf.WriteString(") SELECT")
+	buf.WriteString(colsSQL)
+	buf.WriteString("FROM ?")
+	if _, err := db.Exec(buf.String(), model.Name, tmpName); err != nil {
+		return err
+	}
+
+	if _, err := db.Exec("DROP TABLE IF EXISTS ?", tmpName); err != nil {
+		return err
+	}
+
+	// 打开外键
+	_, err = db.Exec("PRAGMA foreign_keys=OFF")
+
+	return err
+}
+
+// 将一个表重命名，新名称通过返回值返回。
+func (s *sqlite3) rename(db core.DB, tableName string) (string, error) {
+	tmpName := tableName + "_tmp"
+	for {
+		has, err := s.hasTable(db, tmpName)
+		if err != nil {
+			return "", err
+		}
+
+		if !has {
+			break
+		}
+
+		tmpName += "_tmp"
+	}
+
+	// 将当前表改名
+	sql := "ALTER TABLE ? RENAME TO ?"
+	if _, err := db.Exec(sql, tableName, tmpName); err != nil {
+		return "", err
+	}
+
+	return tmpName, nil
 }
 
 func init() {

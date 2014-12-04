@@ -256,7 +256,7 @@ func TestFetch2MapsString(t *testing.T) {
 	a.NotError(rows.Close())
 }
 
-func TestFetchColumns(t *testing.T) {
+func TestFetchColumn(t *testing.T) {
 	a := assert.New(t)
 	db := initDB(a)
 	defer closeDB(db, a)
@@ -265,7 +265,7 @@ func TestFetchColumns(t *testing.T) {
 	rows, err := db.Query(sql)
 	a.NotError(err).NotNil(rows)
 
-	cols, err := FetchColumns(false, "id", rows)
+	cols, err := FetchColumn(false, "id", rows)
 	a.NotError(err).NotNil(cols)
 
 	a.Equal([]interface{}{0, 1}, cols)
@@ -275,14 +275,14 @@ func TestFetchColumns(t *testing.T) {
 	rows, err = db.Query(sql)
 	a.NotError(err).NotNil(rows)
 
-	cols, err = FetchColumns(true, "id", rows)
+	cols, err = FetchColumn(true, "id", rows)
 	a.NotError(err).NotNil(cols)
 
 	a.Equal([]interface{}{0}, cols)
 	a.NotError(rows.Close())
 }
 
-func TestFetchColumnsString(t *testing.T) {
+func TestFetchColumnString(t *testing.T) {
 	a := assert.New(t)
 	db := initDB(a)
 	defer closeDB(db, a)
@@ -291,7 +291,7 @@ func TestFetchColumnsString(t *testing.T) {
 	rows, err := db.Query(sql)
 	a.NotError(err).NotNil(rows)
 
-	cols, err := FetchColumnsString(false, "id", rows)
+	cols, err := FetchColumnString(false, "id", rows)
 	a.NotError(err).NotNil(cols)
 
 	a.Equal([]string{"0", "1"}, cols)
@@ -301,7 +301,7 @@ func TestFetchColumnsString(t *testing.T) {
 	rows, err = db.Query(sql)
 	a.NotError(err).NotNil(rows)
 
-	cols, err = FetchColumnsString(true, "id", rows)
+	cols, err = FetchColumnString(true, "id", rows)
 	a.NotError(err).NotNil(cols)
 
 	a.Equal([]string{"0"}, cols)

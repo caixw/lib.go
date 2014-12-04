@@ -624,7 +624,7 @@ func (s *Select) Stmt(name string) (*sql.Stmt, error) {
 	return s.db.GetStmts().AddSQL(name, s.q.String())
 }
 
-// implement Fetch.Query()
+// 导出数据到sql.Rows
 func (s *Select) Query(args ...interface{}) (*sql.Rows, error) {
 	if len(args) == 0 {
 		// 与sqlString中添加的顺序相同，where在limit之前
@@ -634,7 +634,7 @@ func (s *Select) Query(args ...interface{}) (*sql.Rows, error) {
 	return s.db.Query(s.sqlString(false), args...)
 }
 
-// implement Fetch.QueryRow()
+// 导出第一条数据到sql.Row
 func (s *Select) QueryRow(args ...interface{}) *sql.Row {
 	if len(args) == 0 {
 		// 与sqlString中添加的顺序相同，where在limit之前
@@ -644,7 +644,7 @@ func (s *Select) QueryRow(args ...interface{}) *sql.Row {
 	return s.db.QueryRow(s.sqlString(false), args...)
 }
 
-// implement Fetch.Fetch2Map()
+// 导出数据到map[string]interface{}
 func (s *Select) Fetch2Map(args ...interface{}) (map[string]interface{}, error) {
 	rows, err := s.Query(args...)
 	if err != nil {
@@ -660,7 +660,7 @@ func (s *Select) Fetch2Map(args ...interface{}) (map[string]interface{}, error) 
 	return data[0], nil
 }
 
-// implement Fetch.Fetch2Maps()
+// 导出所有数据到[]map[string]interface{}
 func (s *Select) Fetch2Maps(args ...interface{}) ([]map[string]interface{}, error) {
 	rows, err := s.Query(args...)
 	if err != nil {
@@ -676,7 +676,7 @@ func (s *Select) Fetch2Maps(args ...interface{}) ([]map[string]interface{}, erro
 	return data, nil
 }
 
-// implement Fetch.FetchColumn()
+// 返回指定列的第一行内容
 func (s *Select) FetchColumn(col string, args ...interface{}) (interface{}, error) {
 	rows, err := s.Query(args...)
 	if err != nil {
@@ -684,7 +684,7 @@ func (s *Select) FetchColumn(col string, args ...interface{}) (interface{}, erro
 	}
 	defer rows.Close()
 
-	data, err := util.FetchColumns(true, col, rows)
+	data, err := util.FetchColumn(true, col, rows)
 	if err != nil {
 		return nil, err
 	}
@@ -692,7 +692,7 @@ func (s *Select) FetchColumn(col string, args ...interface{}) (interface{}, erro
 	return data[0], nil
 }
 
-// implement Fetch.FetchColumns()
+// 返回指定列的所有数据
 func (s *Select) FetchColumns(col string, args ...interface{}) ([]interface{}, error) {
 	rows, err := s.Query(args...)
 	if err != nil {
@@ -700,7 +700,7 @@ func (s *Select) FetchColumns(col string, args ...interface{}) ([]interface{}, e
 	}
 	defer rows.Close()
 
-	data, err := util.FetchColumns(true, col, rows)
+	data, err := util.FetchColumn(false, col, rows)
 	if err != nil {
 		return nil, err
 	}
@@ -708,7 +708,7 @@ func (s *Select) FetchColumns(col string, args ...interface{}) ([]interface{}, e
 	return data, nil
 }
 
-// implement Fetch.Fetch()
+// 将当前select语句查询的数据导出到v中
 func (s *Select) Fetch(v interface{}, args ...interface{}) error {
 	rows, err := s.Query(args...)
 	if err != nil {
@@ -727,7 +727,7 @@ func (s *Select) Fetch(v interface{}, args ...interface{}) error {
 			return errors.New("map的键名类型只能为string")
 		}
 		if vv.Type().Elem().Kind() != reflect.Interface {
-			return errors.New("map的键值类型只能为interface{]")
+			return errors.New("map的键值类型只能为interface{}")
 		}
 
 		mapped, err := s.Fetch2Map(args...)

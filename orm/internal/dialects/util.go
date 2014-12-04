@@ -4,6 +4,20 @@
 
 package dialects
 
+import (
+	"database/sql"
+	"reflect"
+	"time"
+)
+
+var (
+	nullString  = reflect.TypeOf(sql.NullString{})
+	nullInt64   = reflect.TypeOf(sql.NullInt64{})
+	nullBool    = reflect.TypeOf(sql.NullBool{})
+	nullFloat64 = reflect.TypeOf(sql.NullFloat64{})
+	timeType    = reflect.TypeOf(time.Time{})
+)
+
 // mysq系列数据库分页语法的实现。支持以下数据库：
 // MySQL, H2, HSQLDB, Postgres, SQLite3
 func mysqlLimitSQL(limit, offset int) (string, []interface{}) {

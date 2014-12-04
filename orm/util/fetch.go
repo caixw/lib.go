@@ -296,7 +296,7 @@ func Fetch2MapsString(once bool, rows *sql.Rows) (data []map[string]string, err 
 // 导出rows中某列的所有或一行数据。
 // once若为true，则只导出第一条数据的指定列。
 // colName指定需要导出的列名，若不指定了不存在的名称，返回error；
-func FetchColumns(once bool, colName string, rows *sql.Rows) ([]interface{}, error) {
+func FetchColumn(once bool, colName string, rows *sql.Rows) ([]interface{}, error) {
 	cols, err := rows.Columns()
 	if err != nil {
 		return nil, err
@@ -334,7 +334,7 @@ func FetchColumns(once bool, colName string, rows *sql.Rows) ([]interface{}, err
 
 // 导出rows中某列的所有或是一行数据。
 // 除了返回的为[]string以外，其它功能同FetchColumns()。
-func FetchColumnsString(once bool, colName string, rows *sql.Rows) ([]string, error) {
+func FetchColumnString(once bool, colName string, rows *sql.Rows) ([]string, error) {
 	cols, err := rows.Columns()
 	if err != nil {
 		return nil, err

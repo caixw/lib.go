@@ -123,8 +123,7 @@ func (m *mysql) sqlType(buf *bytes.Buffer, col *core.Column) {
 			buf.WriteString(fmt.Sprintf("VARCHAR(%d)", col.Len1))
 		}
 		buf.WriteString("LONGTEXT")
-	case reflect.Slice, reflect.Array:
-		// 若是数组，则特殊处理[]byte与[]rune两种情况。
+	case reflect.Slice, reflect.Array: // []rune,[]byte当作字符串处理
 		k := col.GoType.Elem().Kind()
 		if (k != reflect.Int8) && (k != reflect.Int32) {
 			panic("不支持数组类型")
@@ -134,7 +133,23 @@ func (m *mysql) sqlType(buf *bytes.Buffer, col *core.Column) {
 			buf.WriteString(fmt.Sprintf("VARCHAR(%d)", col.Len1))
 		}
 		buf.WriteString("LONGTEXT")
-	case reflect.Struct: // TODO(caixw) time,nullstring等处理
+	case reflect.Struct:
+		switch col.GoType {
+		case nullBool:
+			buf.WriteString("BOOLEAN")
+		case nullFloat64:
+			buf.WriteString(fmt.Sprintf("DOUBLE(%d,%d)", col.Len1, col.Len2))
+		case nullInt64:
+			buf.WriteString("BIGINT")
+			addIntLen()
+		case nullString:
+			if col.Len1 < 65533 {
+				buf.WriteString(fmt.Sprintf("VARCHAR(%d)", col.Len1))
+			}
+			buf.WriteString("LONGTEXT")
+		case timeType:
+			buf.WriteString("DATETIME")
+		}
 	default:
 		panic(fmt.Sprintf("不支持的类型:[%v]", col.GoType.Name()))
 	}
@@ -318,7 +333,7 @@ func (m *mysql) getCols(db core.DB, model *core.Model) (map[string]interface{}, 
 	}
 	defer rows.Close()
 
-	dbCols, err := util.FetchColumnsString(false, "COLUMN_NAME", rows)
+	dbCols, err := util.FetchColumnString(false, "COLUMN_NAME", rows)
 	if err != nil {
 		return nil, nil
 	}
@@ -370,7 +385,7 @@ func (m *mysql) deleteIndexes(db core.DB, model *core.Model) error {
 		return err
 	}
 
-	indexes, err := util.FetchColumnsString(false, "INDEX_NAME", rows)
+	indexes, err := util.FetchColumnString(false, "INDEX_NAME", rows)
 	if err != nil {
 		return err
 	}
