@@ -55,7 +55,6 @@ func (s *sqlite3) CreateTable(db core.DB, m *core.Model) error {
 		for _, fk := range m.FK {
 			fk.RefTableName = db.ReplacePrefix(fk.RefTableName)
 		}
-
 	}
 
 	has, err := s.hasTable(db, m.Name)
@@ -141,7 +140,7 @@ func (s *sqlite3) createTable(db core.DB, model *core.Model) error {
 
 	// PK
 	if len(model.PK) > 0 {
-		createPKSQL(s, buf, model.PK, "pk")
+		createPKSQL(s, buf, model.PK, pkName)
 		buf.WriteByte(',')
 	}
 

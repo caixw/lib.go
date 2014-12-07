@@ -89,10 +89,10 @@ func (m *mysql) sqlType(buf *bytes.Buffer, col *core.Column) {
 	case reflect.Bool:
 		buf.WriteString("BOOLEAN")
 	case reflect.Int8:
-		buf.WriteString("TINYINT")
+		buf.WriteString("SMALLINT")
 		addIntLen()
 	case reflect.Int16:
-		buf.WriteString("SMALLINT")
+		buf.WriteString("MEDIUMINT")
 		addIntLen()
 	case reflect.Int32:
 		buf.WriteString("INT")
@@ -101,11 +101,11 @@ func (m *mysql) sqlType(buf *bytes.Buffer, col *core.Column) {
 		buf.WriteString("BIGINT")
 		addIntLen()
 	case reflect.Uint8:
-		buf.WriteString("TINYINT")
+		buf.WriteString("SMALLINT")
 		addIntLen()
 		buf.WriteString(" UNSIGNED")
 	case reflect.Uint16:
-		buf.WriteString("SMALLINT")
+		buf.WriteString("MEDIUMINT")
 		addIntLen()
 		buf.WriteString(" UNSIGNED")
 	case reflect.Uint32:
@@ -175,7 +175,7 @@ func (m *mysql) createTable(db core.DB, model *core.Model) error {
 
 	// PK
 	if len(model.PK) > 0 {
-		createPKSQL(m, buf, model.PK, "pk")
+		createPKSQL(m, buf, model.PK, pkName)
 		buf.WriteByte(',')
 	}
 

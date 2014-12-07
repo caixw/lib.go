@@ -10,6 +10,10 @@ import (
 	"time"
 )
 
+const (
+	pkName = "pk" // 默认的主键约束名
+)
+
 var (
 	nullString  = reflect.TypeOf(sql.NullString{})
 	nullInt64   = reflect.TypeOf(sql.NullInt64{})
