@@ -8,7 +8,8 @@ import (
 	"bytes"
 	"fmt"
 	"reflect"
-	"strings"
+	"regexp"
+	//"strings"
 
 	"github.com/caixw/lib.go/orm/core"
 	"github.com/caixw/lib.go/orm/util"
@@ -26,13 +27,27 @@ func (p *pq) SupportLastInsertId() bool {
 	return true
 }
 
+// 匹配dbname=dbname 或是dbname =dbname等格式
+var dbnamePrefix = regexp.MustCompile(`\s*=\s*|\s+`)
+
 // implement core.Dialect.GetDBName()
 func (p *pq) GetDBName(dataSource string) string {
-	// dataSource样式：user=user dbname=db password=
-	index := strings.Index(dataSource, "dbname=")
-	dataSource = dataSource[index+1:]
-	index = strings.Index(dataSource, " ") // BUG(caixw) 判断\t等其它字符
-	return dataSource[:index]
+	// dataSource样式：user=user dbname = db password=
+	words := dbnamePrefix.Split(dataSource, -1)
+	//fmt.Println(words)
+	for index, word := range words {
+		if word != "dbname" {
+			continue
+		}
+
+		if index+1 >= len(words) {
+			return ""
+		}
+
+		return words[index+1]
+	}
+
+	return ""
 }
 
 // implement core.Dialect.LimitSQL()

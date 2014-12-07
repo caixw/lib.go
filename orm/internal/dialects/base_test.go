@@ -34,14 +34,14 @@ func TestCreatColSQL(t *testing.T) {
 	col.HasDefault = true
 	col.Default = "1"
 	createColSQL(dialect, buf, col)
-	wont = "`id` TINYINT NOT NULL DEFAULT '1'"
+	wont = "`id` SMALLINT NOT NULL DEFAULT '1'"
 	a.StringEqual(buf.String(), wont, style)
 
 	buf.Reset()
 	col.HasDefault = false
 	col.Nullable = true
 	createColSQL(dialect, buf, col)
-	wont = "`id` TINYINT NULL"
+	wont = "`id` SMALLINT NULL"
 }
 
 func TestCreatePKSQL(t *testing.T) {
