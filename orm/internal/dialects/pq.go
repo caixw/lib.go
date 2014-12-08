@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
-	//"strings"
 
 	"github.com/caixw/lib.go/orm/core"
 	"github.com/caixw/lib.go/orm/util"
@@ -34,7 +33,6 @@ var dbnamePrefix = regexp.MustCompile(`\s*=\s*|\s+`)
 func (p *pq) GetDBName(dataSource string) string {
 	// dataSource样式：user=user dbname = db password=
 	words := dbnamePrefix.Split(dataSource, -1)
-	//fmt.Println(words)
 	for index, word := range words {
 		if word != "dbname" {
 			continue
@@ -62,7 +60,6 @@ func (p *pq) CreateTable(db core.DB, model *core.Model) error {
 		for _, fk := range model.FK {
 			fk.RefTableName = db.ReplacePrefix(fk.RefTableName)
 		}
-
 	}
 
 	sql := "SELECT * FROM pg_tables where schemaname = 'public' and tablename=?"
@@ -121,21 +118,6 @@ func (p *pq) createTable(db core.DB, model *core.Model) error {
 	// Check
 	for name, chk := range model.Check {
 		createCheckSQL(p, buf, chk, name)
-	}
-
-	// key index不存在CONSTRAINT形式的语句
-	if len(model.KeyIndexes) == 0 {
-		for name, index := range model.KeyIndexes {
-			buf.WriteString("INDEX ")
-			p.quote(buf, name)
-			buf.WriteByte('(')
-			for _, col := range index {
-				p.quote(buf, col.Name)
-				buf.WriteByte(',')
-			}
-			buf.Truncate(buf.Len() - 1) // 去掉最后的逗号
-			buf.WriteString("),")
-		}
 	}
 
 	buf.Truncate(buf.Len() - 1) // 去掉最后的逗号
@@ -263,7 +245,11 @@ func (p *pq) sqlType(buf *bytes.Buffer, col *core.Column) {
 	case reflect.Bool:
 		buf.WriteString("BOOLEAN")
 	case reflect.Int8, reflect.Int16, reflect.Uint8, reflect.Uint16:
-		buf.WriteString("SMALLINT")
+		if col.IsAI() {
+			buf.WriteString("SERIAL")
+		} else {
+			buf.WriteString("SMALLINT")
+		}
 	case reflect.Int32, reflect.Uint32:
 		if col.IsAI() {
 			buf.WriteString("SERIAL")

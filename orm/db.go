@@ -50,12 +50,12 @@ func newEngine(driverName, dataSourceName, prefix string) (*Engine, error) {
 	return inst, nil
 }
 
-// 对orm/core.DB的实现，返回当前操作的数据库名称。
+// 对orm/core.DB.Name()的实现，返回当前操作的数据库名称。
 func (e *Engine) Name() string {
 	return e.name
 }
 
-// 对orm/core.DB.GetStmts的实现，返回当前的sql.Stmt实例缓存容器。
+// 对orm/core.DB.GetStmts()的实现，返回当前的sql.Stmt实例缓存容器。
 func (e *Engine) GetStmts() *core.Stmts {
 	return e.stmts
 }
@@ -67,6 +67,7 @@ var replaceQuoteExpr = regexp.MustCompile(`("{1})([^\.\*," ]+)("{1})`)
 // 若sql的值中包含双引号也会被替换，所以所有的值只能是占位符。
 func (e *Engine) ReplaceQuote(sql string) string {
 	left, right := e.Dialect().QuoteStr()
+
 	return replaceQuoteExpr.ReplaceAllString(sql, left+"$2"+right)
 }
 
