@@ -5,6 +5,7 @@
 package orm
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/caixw/lib.go/assert"
@@ -15,18 +16,21 @@ func newDB() (core.DB, error) {
 	return newEngine("fakedb1", "dataSourceName", "prefix_")
 }
 
-func TestwhereExpr(t *testing.T) {
+func TestWhereExpr(t *testing.T) {
 	a := assert.New(t)
 	style := assert.StyleTrim | assert.StyleSpace
 
 	e, err := newDB()
 	a.NotError(err).NotNil(e)
 
-	w := &whereExpr{}
+	w := &whereExpr{
+		cond:     bytes.NewBufferString(""),
+		condArgs: make([]interface{}, 0),
+	}
 	a.NotNil(w)
 
 	w.build(and, `"id"=? and username=?`, 5, "abc")
-	a.StringEqual(w.condString(e), " WHERE(`id`=? and username=?)", style).
+	a.StringEqual(w.condString(e), " WHERE([id]=? and username=?)", style).
 		Equal(w.condArgs, []interface{}{5, "abc"})
 
 	// 重置
