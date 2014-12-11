@@ -15,10 +15,10 @@ import (
 	"github.com/caixw/lib.go/orm/util"
 )
 
-type mysql struct{}
+type Mysql struct{}
 
 // implement core.Dialect.GetDBName()
-func (m *mysql) GetDBName(dataSource string) string {
+func (m *Mysql) GetDBName(dataSource string) string {
 	start := strings.LastIndex(dataSource, "/")
 
 	start++
@@ -31,33 +31,24 @@ func (m *mysql) GetDBName(dataSource string) string {
 }
 
 // implement core.Dialect.Quote
-func (m *mysql) QuoteStr() (string, string) {
+func (m *Mysql) QuoteStr() (string, string) {
 	return "`", "`"
 }
 
 // implement core.Dialect.Limit()
-func (m *mysql) LimitSQL(limit, offset int) (string, []interface{}) {
+func (m *Mysql) LimitSQL(limit, offset int) (string, []interface{}) {
 	return mysqlLimitSQL(limit, offset)
 }
 
 // implement core.Dialect.SupportLastInsertId()
-func (m *mysql) SupportLastInsertId() bool {
+func (m *Mysql) SupportLastInsertId() bool {
 	return true
 }
 
 // implement core.Dialect.CreateTable()
-func (m *mysql) CreateTable(db core.DB, model *core.Model) error {
-	// 处理表名前缀问题
-	model.Name = db.ReplacePrefix(model.Name)
-	if model.FK != nil { // 去外键引用表名的虚前缀
-		for _, fk := range model.FK {
-			fk.RefTableName = db.ReplacePrefix(fk.RefTableName)
-		}
-
-	}
-
+func (m *Mysql) CreateTable(db core.DB, model *core.Model) error {
 	sql := "SELECT `TABLE_NAME` FROM `INFORMATION_SCHEMA`.`TABLES` WHERE `TABLE_SCHEMA`=? and `TABLE_NAME`=?"
-	rows, err := db.Query(sql, db.Name(), model.Name)
+	rows, err := db.Query(sql, db.Name(), db.PrepareSQL(model.Name))
 	if err != nil {
 		return err
 	}
@@ -69,15 +60,8 @@ func (m *mysql) CreateTable(db core.DB, model *core.Model) error {
 	return m.createTable(db, model)
 }
 
-// implement base.quote()
-func (m *mysql) quote(buf *bytes.Buffer, sql string) {
-	buf.WriteByte('`')
-	buf.WriteString(sql)
-	buf.WriteByte('`')
-}
-
 // implement base.sqlType()
-func (m *mysql) sqlType(buf *bytes.Buffer, col *core.Column) {
+func (m *Mysql) sqlType(buf *bytes.Buffer, col *core.Column) {
 	addIntLen := func() {
 		if col.Len1 > 0 {
 			buf.WriteByte('(')
@@ -156,11 +140,11 @@ func (m *mysql) sqlType(buf *bytes.Buffer, col *core.Column) {
 }
 
 // 创建表
-func (m *mysql) createTable(db core.DB, model *core.Model) error {
+func (m *Mysql) createTable(db core.DB, model *core.Model) error {
 	buf := bytes.NewBufferString("CREATE TABLE IF NOT EXISTS ")
 	buf.Grow(300)
 
-	buf.WriteString(db.ReplacePrefix(model.Name))
+	buf.WriteString(model.Name)
 	buf.WriteByte('(')
 
 	// 写入字段信息
@@ -187,23 +171,24 @@ func (m *mysql) createTable(db core.DB, model *core.Model) error {
 
 	// foreign  key
 	for name, fk := range model.FK {
-		fk.RefTableName = db.ReplacePrefix(fk.RefTableName)
 		createFKSQL(m, buf, fk, name)
+		buf.WriteByte(',')
 	}
 
 	// Check
 	for name, chk := range model.Check {
 		createCheckSQL(m, buf, chk, name)
+		buf.WriteByte(',')
 	}
 
 	// key index不存在CONSTRAINT形式的语句
 	if len(model.KeyIndexes) == 0 {
 		for name, index := range model.KeyIndexes {
 			buf.WriteString("INDEX ")
-			m.quote(buf, name)
+			buf.WriteString(name)
 			buf.WriteByte('(')
 			for _, col := range index {
-				m.quote(buf, col.Name)
+				buf.WriteString(col.Name)
 				buf.WriteByte(',')
 			}
 			buf.Truncate(buf.Len() - 1) // 去掉最后的逗号
@@ -225,7 +210,7 @@ func (m *mysql) createTable(db core.DB, model *core.Model) error {
 }
 
 // 更新表
-func (m *mysql) upgradeTable(db core.DB, model *core.Model) error {
+func (m *Mysql) upgradeTable(db core.DB, model *core.Model) error {
 	if err := m.upgradeCols(db, model); err != nil {
 		return err
 	}
@@ -240,13 +225,13 @@ func (m *mysql) upgradeTable(db core.DB, model *core.Model) error {
 
 	// key
 	buf := bytes.NewBufferString("ALTER TABLE ")
-	m.quote(buf, model.Name)
+	buf.WriteString(model.Name)
 	size := buf.Len()
 
 	for name, index := range model.KeyIndexes {
 		buf.Truncate(size)
 		buf.WriteString(" ADD INDEX ")
-		m.quote(buf, name)
+		buf.WriteString(name)
 		buf.WriteByte('(')
 		for _, col := range index {
 			buf.WriteString(col.Name)
@@ -276,14 +261,14 @@ func (m *mysql) upgradeTable(db core.DB, model *core.Model) error {
 // 更新表的列信息。
 // 将model中的列与表中的列做对比：存在的修改；不存在的添加；只存在于
 // 表中的列则直接删除。
-func (m *mysql) upgradeCols(db core.DB, model *core.Model) error {
+func (m *Mysql) upgradeCols(db core.DB, model *core.Model) error {
 	dbColsMap, err := m.getCols(db, model)
 	if err != nil {
 		return err
 	}
 
 	buf := bytes.NewBufferString("ALTER TABLE ")
-	m.quote(buf, model.Name)
+	buf.WriteString(model.Name)
 	size := buf.Len()
 
 	// 将model中的列信息作用于数据库中的表，
@@ -325,7 +310,7 @@ func (m *mysql) upgradeCols(db core.DB, model *core.Model) error {
 }
 
 // 获取表的列信息
-func (m *mysql) getCols(db core.DB, model *core.Model) (map[string]interface{}, error) {
+func (m *Mysql) getCols(db core.DB, model *core.Model) (map[string]interface{}, error) {
 	sql := "SELECT `COLUMN_NAME` FROM `INFORMATION_SCHEMA`.`COLUMNS` WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
 	rows, err := db.Query(sql, db.Name(), model.Name)
 	if err != nil {
@@ -348,7 +333,7 @@ func (m *mysql) getCols(db core.DB, model *core.Model) (map[string]interface{}, 
 }
 
 // 删除表中的索引
-func (m *mysql) deleteIndexes(db core.DB, model *core.Model) error {
+func (m *Mysql) deleteIndexes(db core.DB, model *core.Model) error {
 	// 删除有中的标准约束：pk,fk,unique
 	sql := "SELECT CONSTRAINT_NAME, CONSTRAINT_TYPE FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA=? AND TABLE_NAME=?"
 	rows, err := db.Query(sql, db.Name(), model.Name)
@@ -398,10 +383,4 @@ func (m *mysql) deleteIndexes(db core.DB, model *core.Model) error {
 	rows.Close()
 
 	return nil
-}
-
-func init() {
-	if err := core.RegisterDialect("mysql", &mysql{}); err != nil {
-		panic(err)
-	}
 }

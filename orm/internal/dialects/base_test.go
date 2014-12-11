@@ -17,7 +17,7 @@ var style = assert.StyleTrim | assert.StyleSpace | assert.StyleCase
 
 func TestCreatColSQL(t *testing.T) {
 	a := assert.New(t)
-	dialect := &mysql{}
+	dialect := &Mysql{}
 	buf := bytes.NewBufferString("")
 	col := &core.Column{}
 
@@ -25,7 +25,7 @@ func TestCreatColSQL(t *testing.T) {
 	col.GoType = reflect.TypeOf(1)
 	col.Len1 = 5
 	createColSQL(dialect, buf, col)
-	wont := "`id` BIGINT(5) NOT NULL"
+	wont := "id BIGINT(5) NOT NULL"
 	a.StringEqual(buf.String(), wont, style)
 
 	buf.Reset()
@@ -34,55 +34,55 @@ func TestCreatColSQL(t *testing.T) {
 	col.HasDefault = true
 	col.Default = "1"
 	createColSQL(dialect, buf, col)
-	wont = "`id` SMALLINT NOT NULL DEFAULT '1'"
+	wont = "id SMALLINT NOT NULL DEFAULT '1'"
 	a.StringEqual(buf.String(), wont, style)
 
 	buf.Reset()
 	col.HasDefault = false
 	col.Nullable = true
 	createColSQL(dialect, buf, col)
-	wont = "`id` SMALLINT NULL"
+	wont = "id SMALLINT NULL"
 }
 
 func TestCreatePKSQL(t *testing.T) {
 	a := assert.New(t)
-	dialect := &mysql{}
+	dialect := &Mysql{}
 	buf := bytes.NewBufferString("")
 	col1 := &core.Column{Name: "id"}
 	col2 := &core.Column{Name: "username"}
 	cols := []*core.Column{col1, col2}
 
 	createPKSQL(dialect, buf, cols, "pkname")
-	wont := "CONSTRAINT `pkname` PRIMARY KEY(`id`,`username`)"
+	wont := "CONSTRAINT pkname PRIMARY KEY(id,username)"
 	a.StringEqual(buf.String(), wont, style)
 
 	buf.Reset()
 	createPKSQL(dialect, buf, cols[:1], "pkname")
-	wont = "CONSTRAINT `pkname` PRIMARY KEY(`id`)"
+	wont = "CONSTRAINT pkname PRIMARY KEY(id)"
 	a.StringEqual(buf.String(), wont, style)
 }
 
 func TestCreateUniqueSQL(t *testing.T) {
 	a := assert.New(t)
-	dialect := &mysql{}
+	dialect := &Mysql{}
 	buf := bytes.NewBufferString("")
 	col1 := &core.Column{Name: "id"}
 	col2 := &core.Column{Name: "username"}
 	cols := []*core.Column{col1, col2}
 
 	createUniqueSQL(dialect, buf, cols, "pkname")
-	wont := "CONSTRAINT `pkname` UNIQUE(`id`,`username`)"
+	wont := "CONSTRAINT pkname UNIQUE(id,username)"
 	a.StringEqual(buf.String(), wont, style)
 
 	buf.Reset()
 	createUniqueSQL(dialect, buf, cols[:1], "pkname")
-	wont = "CONSTRAINT `pkname` UNIQUE(`id`)"
+	wont = "CONSTRAINT pkname UNIQUE(id)"
 	a.StringEqual(buf.String(), wont, style)
 }
 
 func TestCreateFKSQL(t *testing.T) {
 	a := assert.New(t)
-	dialect := &mysql{}
+	dialect := &Mysql{}
 	buf := bytes.NewBufferString("")
 	fk := &core.ForeignKey{
 		Col:          &core.Column{Name: "id"},
@@ -92,20 +92,20 @@ func TestCreateFKSQL(t *testing.T) {
 	}
 
 	createFKSQL(dialect, buf, fk, "fkname")
-	wont := "CONSTRAINT `fkname` FOREIGN KEY(`id`) REFERENCES `refTable`(`refCol`) ON UPDATE NO ACTION"
+	wont := "CONSTRAINT fkname FOREIGN KEY(id) REFERENCES refTable(refCol) ON UPDATE NO ACTION"
 	a.StringEqual(buf.String(), wont, style)
 }
 
 func TestCreateCheckSQL(t *testing.T) {
 	a := assert.New(t)
-	dialect := &mysql{}
+	dialect := &Mysql{}
 	buf := bytes.NewBufferString("")
 
 	createCheckSQL(dialect, buf, "id>5", "chkname")
-	wont := "CONSTRAINT `chkname` CHECK(id>5)"
+	wont := "CONSTRAINT chkname CHECK(id>5)"
 	a.StringEqual(wont, buf.String(), style)
 }
 
 func TestAddIndexes(t *testing.T) {
-
+	// TODO
 }

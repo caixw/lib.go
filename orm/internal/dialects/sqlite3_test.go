@@ -5,15 +5,14 @@
 package dialects
 
 import (
-	"bytes"
 	"testing"
 
 	"github.com/caixw/lib.go/assert"
 )
 
-var _ base = &sqlite3{}
+var _ base = &Sqlite3{}
 
-var s = &sqlite3{}
+var s = &Sqlite3{}
 
 func TestSqlite3GetDBName(t *testing.T) {
 	a := assert.New(t)
@@ -23,14 +22,4 @@ func TestSqlite3GetDBName(t *testing.T) {
 	a.Equal(s.GetDBName("abc/dbname.abc"), "dbname")
 	a.Equal(s.GetDBName("dbname"), "dbname")
 	a.Equal(s.GetDBName(""), "")
-}
-
-// mysql.quote() & mysql.QuoteStr()
-func TestSqlite3QuoteQuoteStr(t *testing.T) {
-	a := assert.New(t)
-	l, r := s.QuoteStr()
-	buf := bytes.NewBufferString("")
-	s.quote(buf, "test")
-
-	a.Equal(l+"test"+r, buf.String())
 }

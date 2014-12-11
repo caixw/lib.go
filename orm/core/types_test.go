@@ -111,11 +111,7 @@ func (f *fakeDB) GetStmts() *Stmts {
 	return nil
 }
 
-func (f *fakeDB) ReplaceQuote(cols string) string {
-	return ""
-}
-
-func (f *fakeDB) ReplacePrefix(cols string) string {
+func (f *fakeDB) PrepareSQL(sql string) string {
 	return ""
 }
 

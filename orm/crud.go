@@ -155,11 +155,6 @@ func (w *whereExpr) isNotNull(op int, col string) *whereExpr {
 	return w.build(op, col+" IS NOT NULL")
 }
 
-// 获取条件语句的SQL格式，会将被引号包含的字符串替换成当前数据支持的符号
-func (w *whereExpr) condString(db core.DB) string {
-	return db.ReplaceQuote(w.cond.String())
-}
-
 // 用于产生sql的insert语句。
 // 一般用法如下：
 //  sql := newInsert(engine)
@@ -200,7 +195,7 @@ func (i *Insert) Reset() {
 
 // 指定操作的表名。
 func (i *Insert) Table(name string) *Insert {
-	i.table = i.db.ReplacePrefix(name)
+	i.table = name
 	return i
 }
 
@@ -236,21 +231,18 @@ func (i *Insert) sqlString(rebuild bool) string {
 		i.q.Reset() // 清空之前的内容
 
 		i.q.WriteString("INSERT INTO ")
-		i.q.WriteString(i.db.ReplaceQuote(i.table))
+		i.q.WriteString(i.table)
+
 		i.q.WriteByte('(')
-
-		// 替换列名中的引号
-		cols := i.db.ReplaceQuote(strings.Join(i.cols, ","))
-		i.q.WriteString(cols)
-
+		i.q.WriteString(strings.Join(i.cols, ","))
 		i.q.WriteString(") VALUES(")
-		// 去掉上面的最后一个逗号
 		placeholder := strings.Repeat("?,", len(i.cols))
+		// 去掉上面的最后一个逗号
 		i.q.WriteString(placeholder[0 : len(placeholder)-1])
 		i.q.WriteByte(')')
 	}
 
-	return i.q.String()
+	return i.db.PrepareSQL(i.q.String())
 }
 
 // 缓存当前语句到stmt
@@ -312,7 +304,7 @@ func (u *Update) Reset() {
 }
 
 func (u *Update) Table(name string) *Update {
-	u.table = u.db.ReplacePrefix(name)
+	u.table = name
 	return u
 }
 
@@ -341,19 +333,19 @@ func (u *Update) sqlString(rebuild bool) string {
 		u.q.Reset()
 
 		u.q.WriteString("UPDATE ")
-		u.q.WriteString(u.db.ReplaceQuote((u.table)))
+		u.q.WriteString(u.table)
 		u.q.WriteString(" SET ")
 		for _, v := range u.cols {
-			u.q.WriteString(u.db.ReplaceQuote(v))
+			u.q.WriteString(v)
 			u.q.WriteString("=?,")
 		}
 		u.q.Truncate(u.q.Len() - 1)
 
 		// where
-		u.q.WriteString(u.condString(u.db))
+		u.q.WriteString(u.cond.String())
 	}
 
-	return u.q.String()
+	return u.db.PrepareSQL(u.q.String())
 }
 
 func (u *Update) Stmt(name string) (*sql.Stmt, error) {
@@ -400,8 +392,7 @@ func (d *Delete) Reset() {
 }
 
 func (d *Delete) Table(name string) *Delete {
-	d.table = d.db.ReplacePrefix(name)
-
+	d.table = name
 	return d
 }
 
@@ -410,13 +401,13 @@ func (d *Delete) sqlString(rebuild bool) string {
 		d.q.Reset()
 
 		d.q.WriteString("DELETE FROM ")
-		d.q.WriteString(d.db.ReplaceQuote(d.table))
+		d.q.WriteString(d.table)
 
 		// where
-		d.q.WriteString(d.condString(d.db))
+		d.q.WriteString(d.cond.String())
 	}
 
-	return d.q.String()
+	return d.db.PrepareSQL(d.q.String())
 }
 
 func (d *Delete) Stmt(name string) (*sql.Stmt, error) {
@@ -489,8 +480,7 @@ func (s *Select) Columns(cols ...string) *Select {
 
 // 指定表名
 func (s *Select) Table(name string) *Select {
-	s.table = s.db.ReplacePrefix(name)
-
+	s.table = name
 	return s
 }
 
@@ -505,7 +495,7 @@ var joinType = []string{" LEFT JOIN ", " RIGHT JOIN ", " INNER JOIN ", " FULL JO
 // typ join的类型： 0 LEFT JOIN; 1 RIGHT JOIN; 2 INNER JOIN; 3 FULL JOIN
 func (s *Select) joinOn(typ int, table string, on string) *Select {
 	s.join.WriteString(joinType[typ])
-	s.join.WriteString(s.db.ReplaceQuote(s.db.ReplacePrefix(table)))
+	s.join.WriteString(table)
 	s.join.WriteString(" ON ")
 	s.join.WriteString(on)
 
@@ -606,17 +596,16 @@ func (s *Select) sqlString(rebuild bool) string {
 		s.q.Reset()
 
 		s.q.WriteString("SELECT ")
-		cols := s.db.ReplaceQuote(strings.Join(s.cols, ","))
-		s.q.WriteString(cols)
+		s.q.WriteString(strings.Join(s.cols, ","))
 		s.q.WriteString(" FROM ")
-		s.q.WriteString(s.db.ReplaceQuote(s.table))
+		s.q.WriteString(s.table)
 		s.q.WriteString(s.join.String())
-		s.q.WriteString(s.condString(s.db)) // where
-		s.q.WriteString(s.order.String())   // NOTE(caixw):mysql中若要limit，order字段是必须提供的
+		s.q.WriteString(s.cond.String())  // where
+		s.q.WriteString(s.order.String()) // NOTE(caixw):mysql中若要limit，order字段是必须提供的
 		s.q.WriteString(s.limitSQL)
 	}
 
-	return s.q.String()
+	return s.db.PrepareSQL(s.q.String())
 }
 
 // 将当前语句预编译并缓存到stmts中，方便之后再次使用。

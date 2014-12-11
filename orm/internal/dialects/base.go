@@ -14,9 +14,6 @@ import (
 type base interface {
 	core.Dialect
 
-	// 将sql用core.Dialect.QuoteStr()的字符串引用，并写入buf
-	quote(buf *bytes.Buffer, sql string)
-
 	// 将col转换成sql类型，并写入buf中。
 	sqlType(buf *bytes.Buffer, col *core.Column)
 }
@@ -24,7 +21,7 @@ type base interface {
 // 用于产生在createTable中使用的普通列信息表达式，不包含autoincrement和primary key的关键字。
 func createColSQL(b base, buf *bytes.Buffer, col *core.Column) {
 	// col_name VARCHAR(100) NOT NULL DEFAULT 'abc'
-	b.quote(buf, col.Name)
+	buf.WriteString(col.Name)
 	buf.WriteByte(' ')
 
 	// 写入字段类型
@@ -45,10 +42,10 @@ func createColSQL(b base, buf *bytes.Buffer, col *core.Column) {
 func createPKSQL(b base, buf *bytes.Buffer, cols []*core.Column, pkName string) {
 	//CONSTRAINT pk_name PRIMARY KEY (id,lastName)
 	buf.WriteString(" CONSTRAINT ")
-	b.quote(buf, pkName)
+	buf.WriteString(pkName)
 	buf.WriteString(" PRIMARY KEY(")
 	for _, col := range cols {
-		b.quote(buf, col.Name)
+		buf.WriteString(col.Name)
 		buf.WriteByte(',')
 	}
 	buf.Truncate(buf.Len() - 1) // 去掉最后一个逗号
@@ -60,10 +57,10 @@ func createPKSQL(b base, buf *bytes.Buffer, cols []*core.Column, pkName string) 
 func createUniqueSQL(b base, buf *bytes.Buffer, cols []*core.Column, indexName string) {
 	//CONSTRAINT unique_name UNIQUE (id,lastName)
 	buf.WriteString(" CONSTRAINT ")
-	b.quote(buf, indexName)
+	buf.WriteString(indexName)
 	buf.WriteString(" UNIQUE(")
 	for _, col := range cols {
-		b.quote(buf, col.Name)
+		buf.WriteString(col.Name)
 		buf.WriteByte(',')
 	}
 	buf.Truncate(buf.Len() - 1) // 去掉最后一个逗号
@@ -75,16 +72,16 @@ func createUniqueSQL(b base, buf *bytes.Buffer, cols []*core.Column, indexName s
 func createFKSQL(b base, buf *bytes.Buffer, fk *core.ForeignKey, fkName string) {
 	//CONSTRAINT fk_name FOREIGN KEY (id) REFERENCES user(id)
 	buf.WriteString(" CONSTRAINT ")
-	b.quote(buf, fkName)
+	buf.WriteString(fkName)
 
 	buf.WriteString(" FOREIGN KEY(")
-	b.quote(buf, fk.Col.Name)
+	buf.WriteString(fk.Col.Name)
 
 	buf.WriteString(") REFERENCES ")
-	b.quote(buf, fk.RefTableName)
+	buf.WriteString(fk.RefTableName)
 
 	buf.WriteByte('(')
-	b.quote(buf, fk.RefColName)
+	buf.WriteString(fk.RefColName)
 	buf.WriteByte(')')
 
 	if len(fk.UpdateRule) > 0 {
@@ -102,9 +99,7 @@ func createFKSQL(b base, buf *bytes.Buffer, fk *core.ForeignKey, fkName string) 
 func createCheckSQL(b base, buf *bytes.Buffer, expr, chkName string) {
 	//CONSTRAINT chk_name CHECK (id>0 AND username='admin')
 	buf.WriteString(" CONSTRAINT ")
-
-	b.quote(buf, chkName)
-
+	buf.WriteString(chkName)
 	buf.WriteString(" CHECK(")
 	buf.WriteString(expr)
 	buf.WriteByte(')')
@@ -116,7 +111,7 @@ func addIndexes(b base, db core.DB, model *core.Model) error {
 	// ALTER TABLE语句的公共语句部分，可以重复利用：
 	// ALTER TABLE table_name ADD CONSTRAINT
 	buf := bytes.NewBufferString("ALTER TABLE ")
-	b.quote(buf, model.Name)
+	buf.WriteString(model.Name)
 	buf.WriteString(" ADD CONSTRAINT ")
 	size := buf.Len()
 
@@ -135,7 +130,7 @@ func addIndexes(b base, db core.DB, model *core.Model) error {
 	// ALTER TABLE tbname ADD CONSTRAINT uniquteName unique(...)
 	for name, cols := range model.UniqueIndexes {
 		buf.Truncate(size)
-		b.quote(buf, name)
+		buf.WriteString(name)
 		buf.WriteString(" UNIQUE(")
 		for _, col := range cols {
 			buf.WriteString(col.Name)
@@ -152,9 +147,9 @@ func addIndexes(b base, db core.DB, model *core.Model) error {
 	// fk ALTER TABLE tbname ADD CONSTRAINT fkname FOREIGN KEY (col) REFERENCES tbl(tblcol)
 	for name, fk := range model.FK {
 		buf.Truncate(size)
-		b.quote(buf, name)
+		buf.WriteString(name)
 		buf.WriteString(" FOREIGN KEY(")
-		b.quote(buf, fk.Col.Name)
+		buf.WriteString(fk.Col.Name)
 		buf.WriteByte(')')
 
 		buf.WriteString(" REFERENCES ")
@@ -171,7 +166,7 @@ func addIndexes(b base, db core.DB, model *core.Model) error {
 	// chk ALTER TABLE tblname ADD CONSTRAINT chkName CHECK (id>0 AND city='abc')
 	for name, expr := range model.Check {
 		buf.Truncate(size)
-		b.quote(buf, name) // checkName
+		buf.WriteString(name) // checkName
 		buf.WriteString(" CHECK(")
 		buf.WriteString(expr)
 		buf.WriteByte(')')

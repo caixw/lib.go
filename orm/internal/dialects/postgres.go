@@ -14,15 +14,15 @@ import (
 	"github.com/caixw/lib.go/orm/util"
 )
 
-type pq struct{}
+type Postgres struct{}
 
 // implement core.Dialect.QuoteStr()
-func (p *pq) QuoteStr() (l, r string) {
+func (p *Postgres) QuoteStr() (l, r string) {
 	return `"`, `"`
 }
 
 // implement core.Dialect.SupportLastInsertId()
-func (p *pq) SupportLastInsertId() bool {
+func (p *Postgres) SupportLastInsertId() bool {
 	return true
 }
 
@@ -30,7 +30,7 @@ func (p *pq) SupportLastInsertId() bool {
 var dbnamePrefix = regexp.MustCompile(`\s*=\s*|\s+`)
 
 // implement core.Dialect.GetDBName()
-func (p *pq) GetDBName(dataSource string) string {
+func (p *Postgres) GetDBName(dataSource string) string {
 	// dataSource样式：user=user dbname = db password=
 	words := dbnamePrefix.Split(dataSource, -1)
 	for index, word := range words {
@@ -49,19 +49,12 @@ func (p *pq) GetDBName(dataSource string) string {
 }
 
 // implement core.Dialect.LimitSQL()
-func (p *pq) LimitSQL(limit, offset int) (sql string, args []interface{}) {
+func (p *Postgres) LimitSQL(limit, offset int) (sql string, args []interface{}) {
 	return mysqlLimitSQL(limit, offset)
 }
 
 // implement core.Dialect.CreateTable()
-func (p *pq) CreateTable(db core.DB, model *core.Model) error {
-	model.Name = db.ReplacePrefix(model.Name)
-	if model.FK != nil { // 去外键引用表名的虚前缀
-		for _, fk := range model.FK {
-			fk.RefTableName = db.ReplacePrefix(fk.RefTableName)
-		}
-	}
-
+func (p *Postgres) CreateTable(db core.DB, model *core.Model) error {
 	sql := "SELECT * FROM pg_tables where schemaname = 'public' and tablename=?"
 	rows, err := db.Query(sql, model.Name)
 	if err != nil {
@@ -75,20 +68,12 @@ func (p *pq) CreateTable(db core.DB, model *core.Model) error {
 	return p.createTable(db, model)
 }
 
-// implement base.quote
-// 将sql用core.Dialect.QuoteStr()的字符串引用，并写入buf
-func (p *pq) quote(buf *bytes.Buffer, sql string) {
-	buf.WriteByte('"')
-	buf.WriteString(sql)
-	buf.WriteByte('"')
-}
-
 // 创建新表
-func (p *pq) createTable(db core.DB, model *core.Model) error {
+func (p *Postgres) createTable(db core.DB, model *core.Model) error {
 	buf := bytes.NewBufferString("CREATE TABLE IF NOT EXISTS ")
 	buf.Grow(300)
 
-	buf.WriteString(db.ReplacePrefix(model.Name))
+	buf.WriteString(model.Name)
 	buf.WriteByte('(')
 
 	// 写入字段信息
@@ -111,13 +96,14 @@ func (p *pq) createTable(db core.DB, model *core.Model) error {
 
 	// foreign  key
 	for name, fk := range model.FK {
-		fk.RefTableName = db.ReplacePrefix(fk.RefTableName)
 		createFKSQL(p, buf, fk, name)
+		buf.WriteByte(',')
 	}
 
 	// Check
 	for name, chk := range model.Check {
 		createCheckSQL(p, buf, chk, name)
+		buf.WriteByte(',')
 	}
 
 	buf.Truncate(buf.Len() - 1) // 去掉最后的逗号
@@ -128,7 +114,7 @@ func (p *pq) createTable(db core.DB, model *core.Model) error {
 }
 
 // 更新表
-func (p *pq) upgradeTable(db core.DB, model *core.Model) error {
+func (p *Postgres) upgradeTable(db core.DB, model *core.Model) error {
 	if err := p.upgradeCols(db, model); err != nil {
 		return err
 	}
@@ -143,14 +129,14 @@ func (p *pq) upgradeTable(db core.DB, model *core.Model) error {
 // 更新表的列信息。
 // 将model中的列与表中的列做对比：存在的修改；不存在的添加；只存在于
 // 表中的列则直接删除。
-func (p *pq) upgradeCols(db core.DB, model *core.Model) error {
+func (p *Postgres) upgradeCols(db core.DB, model *core.Model) error {
 	dbColsMap, err := p.getCols(db, model)
 	if err != nil {
 		return err
 	}
 
 	buf := bytes.NewBufferString("ALTER TABLE ")
-	p.quote(buf, model.Name)
+	buf.WriteString(model.Name)
 	size := buf.Len()
 
 	// 将model中的列信息作用于数据库中的表，
@@ -192,7 +178,7 @@ func (p *pq) upgradeCols(db core.DB, model *core.Model) error {
 }
 
 // 获取表的列信息
-func (p *pq) getCols(db core.DB, model *core.Model) (map[string]interface{}, error) {
+func (p *Postgres) getCols(db core.DB, model *core.Model) (map[string]interface{}, error) {
 	sql := "SELECT column_name FROM INFORMATION_SCHEMA.COLUMNS WHERE table_name = ?"
 	rows, err := db.Query(sql, model.Name)
 	if err != nil {
@@ -215,7 +201,7 @@ func (p *pq) getCols(db core.DB, model *core.Model) (map[string]interface{}, err
 }
 
 // 删除表中所有约束
-func (p *pq) deleteConstraints(db core.DB, model *core.Model) error {
+func (p *Postgres) deleteConstraints(db core.DB, model *core.Model) error {
 	sql := "SELECT  con.conname FROM pg_constraint AS con, pg_class AS cls WHERE con.conrelid=c.oid AND c.relname=?"
 	rows, err := db.Query(sql, model.Name)
 	if err != nil {
@@ -240,7 +226,7 @@ func (p *pq) deleteConstraints(db core.DB, model *core.Model) error {
 
 // implement base.sqlType
 // 将col转换成sql类型，并写入buf中。
-func (p *pq) sqlType(buf *bytes.Buffer, col *core.Column) {
+func (p *Postgres) sqlType(buf *bytes.Buffer, col *core.Column) {
 	switch col.GoType.Kind() {
 	case reflect.Bool:
 		buf.WriteString("BOOLEAN")

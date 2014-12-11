@@ -37,14 +37,14 @@ type DB interface {
 	// 当前操作数据库的名称
 	Name() string
 
-	// 获取一个缓存的sql.Stmt，若不存在found返回false
+	// 获取Stmts实例
 	GetStmts() *Stmts
 
-	// 更换语句中的双引号为数据库中指定的字段引用符号
-	ReplaceQuote(cols string) string
-
-	// 替换表前缀为真实的前缀字符串
-	ReplacePrefix(cols string) string
+	// 预处理SQL语句，包括：
+	// 替换sql语句中的{}符号为Dialect.QuoteStr中的值；
+	// 替换sql语句中表名前缀占位符为真实的表名前缀。
+	// 若这些都不存在，则直接返回原字符串。
+	PrepareSQL(sql string) string
 
 	// 返回Dialect接口
 	Dialect() Dialect

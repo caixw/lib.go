@@ -20,17 +20,14 @@ func TestWhereExpr(t *testing.T) {
 	a := assert.New(t)
 	style := assert.StyleTrim | assert.StyleSpace
 
-	e, err := newDB()
-	a.NotError(err).NotNil(e)
-
 	w := &whereExpr{
 		cond:     bytes.NewBufferString(""),
 		condArgs: make([]interface{}, 0),
 	}
 	a.NotNil(w)
 
-	w.build(and, `"id"=? and username=?`, 5, "abc")
-	a.StringEqual(w.condString(e), " WHERE([id]=? and username=?)", style).
+	w.build(and, `{id}=? and username=?`, 5, "abc")
+	a.StringEqual(w.cond.String(), " WHERE({id}=? and username=?)", style).
 		Equal(w.condArgs, []interface{}{5, "abc"})
 
 	// 重置
@@ -40,7 +37,7 @@ func TestWhereExpr(t *testing.T) {
 
 	// Between
 	w.AndBetween("age", 5, 6)
-	a.StringEqual(w.condString(e), " WHERE(age BETWEEN ? AND ?)", style).
+	a.StringEqual(w.cond.String(), " WHERE(age BETWEEN ? AND ?)", style).
 		Equal(w.condArgs, []interface{}{5, 6})
 
 	// In函数不指定数据，会触发panic
@@ -48,17 +45,17 @@ func TestWhereExpr(t *testing.T) {
 
 	w.Reset()
 	w.AndIsNull("age")
-	a.StringEqual(w.condString(e), " WHERE(age IS NULL)", style).
+	a.StringEqual(w.cond.String(), " WHERE(age IS NULL)", style).
 		Equal(len(w.condArgs), 0)
 
 	w.Reset()
 	w.OrIsNotNull("age")
-	a.StringEqual(w.condString(e), " WHERE(age IS NOT NULL)", style).
+	a.StringEqual(w.cond.String(), " WHERE(age IS NOT NULL)", style).
 		Equal(len(w.condArgs), 0)
 
 	w.Reset()
 	w.And("id=?", 5).AndIn("age", 7, 8, 9).OrIsNotNull("group")
-	a.StringEqual(w.condString(e), " WHERE(id=?) AND(age IN(?,?,?)) OR(group IS NOT NULL)", style).
+	a.StringEqual(w.cond.String(), " WHERE(id=?) AND(age IN(?,?,?)) OR(group IS NOT NULL)", style).
 		Equal(w.condArgs, []interface{}{5, 7, 8, 9})
 }
 
@@ -72,10 +69,10 @@ func TestDelete(t *testing.T) {
 	d := newDelete(e)
 	a.NotNil(d)
 
-	d.Table("table.user").
+	d.Table("#user").
 		And("username like ?", "%admin%").
 		OrIn("uid", 1, 2, 3, 4, 5).
-		AndBetween(`"group"`, 1, 10)
+		AndBetween(`{group}`, 1, 10)
 	wont := "DELETE FROM prefix_user WHERE(username like ?) OR(uid IN(?,?,?,?,?)) AND([group] BETWEEN ? AND ?)"
 	a.StringEqual(d.sqlString(true), wont, style)
 }
@@ -91,9 +88,9 @@ func TestUpdate(t *testing.T) {
 	a.NotNil(u)
 
 	u.Table("user").
-		Columns("password", "username", `"group"`).
+		Columns("password", "username", `{group}`).
 		And("id=?").
-		Or(`"group"=?`)
+		Or(`{group}=?`)
 	wont := "UPDATE user SET password=?,username=?,[group]=? WHERE(id=?) OR([group]=?)"
 	a.StringEqual(u.sqlString(true), wont, style)
 }
@@ -108,8 +105,8 @@ func TestInsert(t *testing.T) {
 	i := newInsert(e)
 	a.NotNil(i)
 
-	i.Table("table.user").
-		Columns("uid", "username", `"password"`).
+	i.Table("#user").
+		Columns("uid", "username", `{password}`).
 		Columns("group", "age")
 	wont := "INSERT INTO prefix_user(uid,username,[password],group,age) VALUES(?,?,?,?,?)"
 	a.StringEqual(i.sqlString(true), wont, style).

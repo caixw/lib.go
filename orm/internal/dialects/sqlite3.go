@@ -14,20 +14,20 @@ import (
 	"github.com/caixw/lib.go/orm/core"
 )
 
-type sqlite3 struct{}
+type Sqlite3 struct{}
 
 // implement core.Dialect.QuoteStr()
-func (s *sqlite3) QuoteStr() (l, r string) {
+func (s *Sqlite3) QuoteStr() (l, r string) {
 	return "[", "]"
 }
 
 // implement core.Dialect.SupportLastInsertId()
-func (s *sqlite3) SupportLastInsertId() bool {
+func (s *Sqlite3) SupportLastInsertId() bool {
 	return true
 }
 
 // implement core.Dialect.GetDBName()
-func (s *sqlite3) GetDBName(dataSource string) string {
+func (s *Sqlite3) GetDBName(dataSource string) string {
 	// 取得最后个路径分隔符的位置，无论是否存在分隔符，用++
 	// 表达式都正好能表示文件名开始的位置。
 	start := strings.LastIndex(dataSource, string(os.PathSeparator))
@@ -44,19 +44,12 @@ func (s *sqlite3) GetDBName(dataSource string) string {
 }
 
 // implement core.Dialect.LimitSQL()
-func (s *sqlite3) LimitSQL(limit, offset int) (sql string, args []interface{}) {
+func (s *Sqlite3) LimitSQL(limit, offset int) (sql string, args []interface{}) {
 	return mysqlLimitSQL(limit, offset)
 }
 
 // implement core.Dialect.CreateTable()
-func (s *sqlite3) CreateTable(db core.DB, m *core.Model) error {
-	m.Name = db.ReplacePrefix(m.Name)
-	if m.FK != nil { // 去外键引用表名的虚前缀
-		for _, fk := range m.FK {
-			fk.RefTableName = db.ReplacePrefix(fk.RefTableName)
-		}
-	}
-
+func (s *Sqlite3) CreateTable(db core.DB, m *core.Model) error {
 	has, err := s.hasTable(db, m.Name)
 	if err != nil {
 		return err
@@ -69,7 +62,7 @@ func (s *sqlite3) CreateTable(db core.DB, m *core.Model) error {
 }
 
 // 是否存在指定名称的表
-func (s *sqlite3) hasTable(db core.DB, tableName string) (bool, error) {
+func (s *Sqlite3) hasTable(db core.DB, tableName string) (bool, error) {
 	sql := "SELECT * FROM sqlite_master WHERE type='table' AND name=?"
 	rows, err := db.Query(sql, tableName)
 	if err != nil {
@@ -80,16 +73,9 @@ func (s *sqlite3) hasTable(db core.DB, tableName string) (bool, error) {
 	return rows.Next(), nil
 }
 
-// implement base.quote()
-func (s *sqlite3) quote(buf *bytes.Buffer, sql string) {
-	buf.WriteByte('[')
-	buf.WriteString(sql)
-	buf.WriteByte(']')
-}
-
 // implement base.sqlType()
 // 具体规则参照:http://www.sqlite.org/datatype3.html
-func (s *sqlite3) sqlType(buf *bytes.Buffer, col *core.Column) {
+func (s *Sqlite3) sqlType(buf *bytes.Buffer, col *core.Column) {
 	switch col.GoType.Kind() {
 	case reflect.String:
 		buf.WriteString("TEXT")
@@ -121,11 +107,11 @@ func (s *sqlite3) sqlType(buf *bytes.Buffer, col *core.Column) {
 }
 
 // 创建表
-func (s *sqlite3) createTable(db core.DB, model *core.Model) error {
+func (s *Sqlite3) createTable(db core.DB, model *core.Model) error {
 	buf := bytes.NewBufferString("CREATE TABLE IF NOT EXISTS ")
 	buf.Grow(300)
 
-	buf.WriteString(db.ReplacePrefix(model.Name))
+	buf.WriteString(model.Name)
 	buf.WriteByte('(')
 
 	// 写入字段信息
@@ -152,28 +138,14 @@ func (s *sqlite3) createTable(db core.DB, model *core.Model) error {
 
 	// foreign  key
 	for name, fk := range model.FK {
-		fk.RefTableName = db.ReplacePrefix(fk.RefTableName)
 		createFKSQL(s, buf, fk, name)
+		buf.WriteByte(',')
 	}
 
 	// Check
 	for name, chk := range model.Check {
 		createCheckSQL(s, buf, chk, name)
-	}
-
-	// TODO(caixw) sqlite3存在keyindex?
-	if len(model.KeyIndexes) == 0 {
-		for name, index := range model.KeyIndexes {
-			buf.WriteString("INDEX ")
-			s.quote(buf, name)
-			buf.WriteByte('(')
-			for _, col := range index {
-				s.quote(buf, col.Name)
-				buf.WriteByte(',')
-			}
-			buf.Truncate(buf.Len() - 1) // 去掉最后的逗号
-			buf.WriteString("),")
-		}
+		buf.WriteByte(',')
 	}
 
 	buf.Truncate(buf.Len() - 1) // 去掉最后的逗号
@@ -183,9 +155,9 @@ func (s *sqlite3) createTable(db core.DB, model *core.Model) error {
 	return err
 }
 
-// 更新表。sqlite3并没有更改列类型的方法，只能采取官网说的方法来实现：
+// 更新表。Sqlite3并没有更改列类型的方法，只能采取官网说的方法来实现：
 // http://www.sqlite.org/lang_altertable.html
-func (s *sqlite3) upgradeTable(db core.DB, model *core.Model) error {
+func (s *Sqlite3) upgradeTable(db core.DB, model *core.Model) error {
 	// 关闭外键
 	if _, err := db.Exec("PRAGMA foreign_keys=OFF"); err != nil {
 		return err
@@ -227,7 +199,7 @@ func (s *sqlite3) upgradeTable(db core.DB, model *core.Model) error {
 }
 
 // 将一个表重命名，新名称通过返回值返回。
-func (s *sqlite3) rename(db core.DB, tableName string) (string, error) {
+func (s *Sqlite3) rename(db core.DB, tableName string) (string, error) {
 	tmpName := tableName + "_tmp"
 	for {
 		has, err := s.hasTable(db, tmpName)
@@ -249,10 +221,4 @@ func (s *sqlite3) rename(db core.DB, tableName string) (string, error) {
 	}
 
 	return tmpName, nil
-}
-
-func init() {
-	if err := core.RegisterDialect("sqlite3", &sqlite3{}); err != nil {
-		panic(err)
-	}
 }

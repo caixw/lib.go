@@ -5,15 +5,14 @@
 package dialects
 
 import (
-	"bytes"
 	"testing"
 
 	"github.com/caixw/lib.go/assert"
 )
 
-var _ base = &mysql{}
+var _ base = &Mysql{}
 
-var m = &mysql{}
+var m = &Mysql{}
 
 func TestMysqlGetDBName(t *testing.T) {
 	a := assert.New(t)
@@ -23,14 +22,4 @@ func TestMysqlGetDBName(t *testing.T) {
 	a.Equal(m.GetDBName("root:password@tcp(localhost:3066)/dbname"), "dbname")
 	a.Equal(m.GetDBName("root:password@unix(/tmp/mysql.lock)/dbname?loc=Local"), "dbname")
 	a.Equal(m.GetDBName("root:/"), "")
-}
-
-// mysql.quote() & mysql.QuoteStr()
-func TestMysqlQuoteQuoteStr(t *testing.T) {
-	a := assert.New(t)
-	l, r := m.QuoteStr()
-	buf := bytes.NewBufferString("")
-	m.quote(buf, "test")
-
-	a.Equal(l+"test"+r, buf.String())
 }

@@ -7,7 +7,6 @@ package orm
 import (
 	"database/sql"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/caixw/lib.go/orm/core"
@@ -15,10 +14,6 @@ import (
 
 // 实现两个internal.DB接口，分别对应sql包的DB和Tx结构，
 // 供SQL和model包使用
-
-// 表名的虚前缀，SQL语句中的若带此字符串，
-// 则将会被替换Engine.preifx对应的值。
-const tablePrefix = "table."
 
 type Engine struct {
 	name   string // 数据库的名称
@@ -60,28 +55,13 @@ func (e *Engine) GetStmts() *core.Stmts {
 	return e.stmts
 }
 
-var replaceQuoteExpr = regexp.MustCompile(`("{1})([^\.\*," ]+)("{1})`)
+// 对orm/core.DB.PrepareSQL()的实现。替换语句的各种占位符。
+func (e *Engine) PrepareSQL(sql string) string {
+	// TODO 缓存replace
+	l, r := e.Dialect().QuoteStr()
+	replace := strings.NewReplacer("{", l, "}", r, "#", e.prefix)
 
-// 对orm/core.DB.ReplaceQuote的实现。
-// 替换语句中的双引号为指定的符号。
-// 若sql的值中包含双引号也会被替换，所以所有的值只能是占位符。
-func (e *Engine) ReplaceQuote(sql string) string {
-	left, right := e.Dialect().QuoteStr()
-
-	return replaceQuoteExpr.ReplaceAllString(sql, left+"$2"+right)
-}
-
-// 对orm/core.DB.ReplacePrefix()的实现。
-// 若table字符串是以tablePrefix指定的值开头的，则将其值替换成
-// Engine.prefix的值，否则原样返回。示例如下：
-//  `table.user`        => prefix_user
-//  `"table.group"`     => `preifx_group`
-func (e *Engine) ReplacePrefix(table string) string {
-	index := strings.Index(table, tablePrefix)
-	if index == 0 || index == 1 {
-		table = strings.Replace(table, tablePrefix, e.prefix, -1)
-	}
-	return table
+	return replace.Replace(sql)
 }
 
 // 对orm/core.DB.Dialect()的实现。返回当前数据库对应的Dialect
@@ -173,15 +153,8 @@ func (t *Tx) GetStmts() *core.Stmts {
 	return t.engine.GetStmts()
 }
 
-// 替换语句中的双引号为指定的符号。
-// 若sql的值中包含双引号也会被替换，所以所有的值只能是占位符。
-func (t *Tx) ReplaceQuote(sql string) string {
-	return t.engine.ReplaceQuote(sql)
-}
-
-// 替换表名的"table."虚前缀为e.prefix。
-func (t *Tx) ReplacePrefix(table string) string {
-	return t.engine.ReplacePrefix(table)
+func (t *Tx) PrepareSQL(sql string) string {
+	return t.engine.PrepareSQL(sql)
 }
 
 func (t *Tx) Dialect() core.Dialect {
