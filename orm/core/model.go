@@ -25,6 +25,34 @@ type modelsMap struct {
 	items map[reflect.Type]*Model
 }
 
+type conType int
+
+// 预定的约束类型，方便Model中使用。
+const (
+	none conType = iota
+	index
+	unique
+	fk
+	check
+)
+
+func (t conType) String() string {
+	switch t {
+	case none:
+		return "<none>"
+	case index:
+		return "KEY INDEX"
+	case unique:
+		return "UNIQUE INDEX"
+	case fk:
+		return "FOREIGN KEY"
+	case check:
+		return "CHECK"
+	default:
+		return "<unknown>"
+	}
+}
+
 // go本身不支持struct级别的struct tag，所以想要给一个struct
 // 指定struct tag，只能通过一个函数返回一段描述信息。
 type Metaer interface {

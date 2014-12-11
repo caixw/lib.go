@@ -12,28 +12,8 @@ package core
 import (
 	"database/sql"
 	"database/sql/driver"
-	"fmt"
 	"os"
-	"testing"
-
-	"github.com/caixw/lib.go/assert"
 )
-
-func TestConTypeString(t *testing.T) {
-	a := assert.New(t)
-
-	a.Equal("<none>", none.String()).
-		Equal("KEY INDEX", fmt.Sprint(index)).
-		Equal("UNIQUE INDEX", unique.String()).
-		Equal("FOREIGN KEY", fk.String()).
-		Equal("CHECK", check.String())
-
-	var c1 conType
-	a.Equal("<none>", c1.String())
-
-	c1 = 100
-	a.Equal("<unknown>", c1.String())
-}
 
 type dialectBase struct{}
 
