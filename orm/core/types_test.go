@@ -2,14 +2,16 @@
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
-// 本文件主要包含了types.go文件中声明的两个接口的测试实例：
-// Dialect:fakeDialect1,fakeDialect2;
-// DB:fakeDB.
+// 声明了一些测试用的虚假类：
+// - fakeDB实现了DB接口的类，内部调用sqlite3实现。
+// - fake1 fakeDriver1注册的数据库实例，与fakeDialect1组成一对。
+// - fake2 fakeDriver2注册的数据库实例，与fakeDialect2组成一对。
 
 package core
 
 import (
 	"database/sql"
+	"database/sql/driver"
 	"fmt"
 	"os"
 	"testing"
@@ -33,9 +35,7 @@ func TestConTypeString(t *testing.T) {
 	a.Equal("<unknown>", c1.String())
 }
 
-type dialectBase struct {
-	/* data */
-}
+type dialectBase struct{}
 
 func (d *dialectBase) GetDBName(dataSource string) string {
 	return ""
@@ -73,6 +73,28 @@ var _ Dialect = &fakeDialect2{}
 
 func (t *fakeDialect2) QuoteStr() (string, string) {
 	return "{", "}"
+}
+
+// fakeDriver2 对应fakeDialect2
+type fakeDriver1 struct{}
+
+func (f *fakeDriver1) Open(arg string) (driver.Conn, error) {
+	return nil, nil
+}
+
+func init() {
+	sql.Register("fake1", &fakeDriver1{})
+}
+
+// fakeDriver2 对应fakeDialect2
+type fakeDriver2 struct{}
+
+func (f *fakeDriver2) Open(arg string) (driver.Conn, error) {
+	return nil, nil
+}
+
+func init() {
+	sql.Register("fake2", &fakeDriver2{})
 }
 
 // fakeDB

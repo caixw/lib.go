@@ -5,6 +5,7 @@
 package core
 
 import (
+	"database/sql"
 	"fmt"
 	"reflect"
 	"sync"
@@ -29,10 +30,12 @@ func clearDialects() {
 // 注册一个新的Dialect
 // name值应该与sql.Open()中的driverName参数相同。
 func RegisterDialect(name string, d Dialect) error {
-	// TODO(caixw) GO1.4 database/sql包可以查询已注册driverName
-	// 列表，通过判断是否在该列表，再判断能否注册。
 	dialects.Lock()
 	defer dialects.Unlock()
+
+	if !isRegistedDriver(name) {
+		return fmt.Errorf("该名称[%v]的driver未注册", name)
+	}
 
 	for k, v := range dialects.items {
 		if k == name {
@@ -46,6 +49,18 @@ func RegisterDialect(name string, d Dialect) error {
 
 	dialects.items[name] = d
 	return nil
+}
+
+// 指定名称的driverName是否已经被注册
+func isRegistedDriver(driverName string) bool {
+	drivers := sql.Drivers()
+	for _, driver := range drivers {
+		if driver == driverName {
+			return true
+		}
+	}
+
+	return false
 }
 
 // 指定名称的Dialect是否已经被注册

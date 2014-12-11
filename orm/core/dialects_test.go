@@ -8,7 +8,15 @@ import (
 	"testing"
 
 	"github.com/caixw/lib.go/assert"
+	_ "github.com/mattn/go-sqlite3"
 )
+
+func TestIsRegistedDriver(t *testing.T) {
+	a := assert.New(t)
+
+	a.True(isRegistedDriver("sqlite3"))
+	a.False(isRegistedDriver("abcdeg"))
+}
 
 func TestDialect(t *testing.T) {
 	a := assert.New(t)
