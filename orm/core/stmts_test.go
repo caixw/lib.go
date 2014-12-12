@@ -7,6 +7,8 @@
 package core
 
 import (
+	"database/sql"
+	"os"
 	"testing"
 
 	"github.com/caixw/lib.go/assert"
@@ -139,4 +141,58 @@ func TestStmtsAddSetSQL(t *testing.T) {
 
 	s.Close()
 	a.Nil(s.items)
+}
+
+// fakeDB
+type fakeDB struct {
+	db *sql.DB
+}
+
+func newFakeDB() (*fakeDB, error) {
+	db, err := sql.Open("sqlite3", "./test.db")
+	if err != nil {
+		return nil, err
+	}
+
+	return &fakeDB{
+		db: db,
+	}, nil
+}
+
+func (f *fakeDB) close() {
+	f.db.Close()
+	os.Remove("./test.db")
+}
+
+func (f *fakeDB) Name() string {
+	return ""
+}
+
+// stmts仅用到了Prepare接口函数
+func (f *fakeDB) Prepare(str string) (*sql.Stmt, error) {
+	return f.db.Prepare(str)
+}
+
+func (f *fakeDB) GetStmts() *Stmts {
+	return nil
+}
+
+func (f *fakeDB) PrepareSQL(sql string) string {
+	return ""
+}
+
+func (f *fakeDB) Dialect() Dialect {
+	return nil
+}
+
+func (f *fakeDB) Exec(sql string, args ...interface{}) (sql.Result, error) {
+	return nil, nil
+}
+
+func (f *fakeDB) Query(sql string, args ...interface{}) (*sql.Rows, error) {
+	return nil, nil
+}
+
+func (f *fakeDB) QueryRow(sql string, args ...interface{}) *sql.Row {
+	return nil
 }

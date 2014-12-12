@@ -2,34 +2,36 @@
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
-package core
+package dialect
 
 import (
 	"database/sql"
 	"fmt"
 	"reflect"
 	"sync"
+
+	"github.com/caixw/lib.go/orm/core"
 )
 
 type dialectMap struct {
 	sync.Mutex
-	items map[string]Dialect
+	items map[string]core.Dialect
 }
 
 // 所有注册的dialect
-var dialects = &dialectMap{items: make(map[string]Dialect)}
+var dialects = &dialectMap{items: make(map[string]core.Dialect)}
 
 // 清空所有已经注册的dialect
-func clearDialects() {
+func clear() {
 	dialects.Lock()
 	defer dialects.Unlock()
 
-	dialects.items = make(map[string]Dialect)
+	dialects.items = make(map[string]core.Dialect)
 }
 
-// 注册一个新的Dialect
+// 注册一个新的core.Dialect
 // name值应该与sql.Open()中的driverName参数相同。
-func RegisterDialect(name string, d Dialect) error {
+func Register(name string, d core.Dialect) error {
 	dialects.Lock()
 	defer dialects.Unlock()
 
@@ -64,13 +66,13 @@ func isRegistedDriver(driverName string) bool {
 }
 
 // 指定名称的Dialect是否已经被注册
-func IsRegistedDialect(name string) bool {
+func IsRegisted(name string) bool {
 	_, found := dialects.items[name]
 	return found
 }
 
 // 所有已经注册的Dialect名称列表
-func RegistedDialects() []string {
+func Dialects() []string {
 	dialects.Lock()
 	defer dialects.Unlock()
 
@@ -83,7 +85,7 @@ func RegistedDialects() []string {
 }
 
 // 获取一个Dialect
-func GetDialect(name string) (d Dialect, found bool) {
+func Get(name string) (d core.Dialect, found bool) {
 	dialects.Lock()
 	defer dialects.Unlock()
 

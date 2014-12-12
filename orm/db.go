@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/caixw/lib.go/orm/core"
+	"github.com/caixw/lib.go/orm/dialect"
 )
 
 // 实现两个internal.DB接口，分别对应sql包的DB和Tx结构，
@@ -24,7 +25,7 @@ type Engine struct {
 }
 
 func newEngine(driverName, dataSourceName, prefix string) (*Engine, error) {
-	d, found := core.GetDialect(driverName)
+	d, found := dialect.Get(driverName)
 	if !found {
 		return nil, fmt.Errorf("未找到与driverName[%v]相同的Dialect", driverName)
 	}

@@ -7,20 +7,61 @@
 // - fake1 fakeDriver1注册的数据库实例，与fakeDialect1组成一对。
 // - fake2 fakeDriver2注册的数据库实例，与fakeDialect2组成一对。
 
-package core
+package dialect
 
 import (
 	"database/sql"
 	"database/sql/driver"
 	"os"
+	"testing"
+
+	"github.com/caixw/lib.go/assert"
+	"github.com/caixw/lib.go/orm/core"
 )
+
+func TestIsRegistedDriver(t *testing.T) {
+	a := assert.New(t)
+
+	a.True(isRegistedDriver("fake1"))
+	a.False(isRegistedDriver("abcdeg"))
+}
+
+func TestDialects(t *testing.T) {
+	a := assert.New(t)
+
+	clear()
+	a.Empty(dialects.items)
+
+	err := Register("fake1", &fakeDialect1{})
+	a.NotError(err).
+		True(IsRegisted("fake1"))
+
+	// 注册一个相同名称的
+	err = Register("fake1", &fakeDialect2{})
+	a.Error(err)                    // 注册失败
+	a.Equal(1, len(dialects.items)) // 数量还是1，注册没有成功
+
+	// 再注册一个名称不相同的
+	err = Register("fake2", &fakeDialect2{})
+	a.NotError(err)
+	a.Equal(2, len(dialects.items))
+
+	// 注册类型相同，但名称不同的实例
+	err = Register("fake3", &fakeDialect2{num: 2})
+	a.Error(err)                    // 注册失败
+	a.Equal(2, len(dialects.items)) // 数量还是2，注册没有成功
+
+	// 清空
+	clear()
+	a.Empty(dialects.items)
+}
 
 type dialectBase struct{}
 
 func (d *dialectBase) GetDBName(dataSource string) string {
 	return ""
 }
-func (d *dialectBase) CreateTable(db DB, m *Model) error {
+func (d *dialectBase) CreateTable(db core.DB, m *core.Model) error {
 	return nil
 }
 
@@ -37,7 +78,7 @@ type fakeDialect1 struct {
 	dialectBase
 }
 
-var _ Dialect = &fakeDialect1{}
+var _ core.Dialect = &fakeDialect1{}
 
 func (t *fakeDialect1) QuoteStr() (string, string) {
 	return "[", "]"
@@ -49,7 +90,7 @@ type fakeDialect2 struct {
 	num int
 }
 
-var _ Dialect = &fakeDialect2{}
+var _ core.Dialect = &fakeDialect2{}
 
 func (t *fakeDialect2) QuoteStr() (string, string) {
 	return "{", "}"
@@ -100,33 +141,4 @@ func (f *fakeDB) close() {
 
 func (f *fakeDB) Name() string {
 	return ""
-}
-
-// stmts仅用到了Prepare接口函数
-func (f *fakeDB) Prepare(str string) (*sql.Stmt, error) {
-	return f.db.Prepare(str)
-}
-
-func (f *fakeDB) GetStmts() *Stmts {
-	return nil
-}
-
-func (f *fakeDB) PrepareSQL(sql string) string {
-	return ""
-}
-
-func (f *fakeDB) Dialect() Dialect {
-	return nil
-}
-
-func (f *fakeDB) Exec(sql string, args ...interface{}) (sql.Result, error) {
-	return nil, nil
-}
-
-func (f *fakeDB) Query(sql string, args ...interface{}) (*sql.Rows, error) {
-	return nil, nil
-}
-
-func (f *fakeDB) QueryRow(sql string, args ...interface{}) *sql.Row {
-	return nil
 }

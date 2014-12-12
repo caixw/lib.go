@@ -14,6 +14,7 @@ import (
 	"database/sql/driver"
 
 	"github.com/caixw/lib.go/orm/core"
+	"github.com/caixw/lib.go/orm/dialect"
 )
 
 type base struct {
@@ -82,8 +83,8 @@ func init() {
 	// 注册fakedb1及相当的dialect
 	sql.Register("fakedb1", &fakeDb1{})
 
-	if !core.IsRegistedDialect("fakedb1") {
-		err := core.RegisterDialect("fakedb1", &fakeDialect1{})
+	if !dialect.IsRegisted("fakedb1") {
+		err := dialect.Register("fakedb1", &fakeDialect1{})
 		if err != nil {
 			panic(err)
 		}
@@ -92,8 +93,8 @@ func init() {
 	// 注册fakedb2及相关的dialect
 	sql.Register("fakedb2", &fakeDb2{})
 
-	if !core.IsRegistedDialect("fakedb2") {
-		err := core.RegisterDialect("fakedb2", &fakeDialect2{})
+	if !dialect.IsRegisted("fakedb2") {
+		err := dialect.Register("fakedb2", &fakeDialect2{})
 		if err != nil {
 			panic(err)
 		}
