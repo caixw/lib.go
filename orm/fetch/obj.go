@@ -2,11 +2,10 @@
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
-package util
+package fetch
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 	"reflect"
 	"unicode"
@@ -61,9 +60,9 @@ func parseObj(v reflect.Value, ret *map[string]reflect.Value) error {
 }
 
 // 将rows中的一条记录写入到val中，必须保证val的类型为reflect.Struct。
-// 仅供Fetch2Objs调用。
+// 仅供Obj()调用。
 func fetchOnceObj(val reflect.Value, rows *sql.Rows) error {
-	mapped, err := Fetch2Maps(true, rows)
+	mapped, err := Map(true, rows)
 	if err != nil {
 		return err
 	}
@@ -99,7 +98,7 @@ func fetchObjToFixedSlice(val reflect.Value, rows *sql.Rows) error {
 	}
 
 	// 先导出数据到map中
-	mapped, err := Fetch2Maps(false, rows)
+	mapped, err := Map(false, rows)
 	if err != nil {
 		return err
 	}
@@ -143,7 +142,7 @@ func fetchObjToSlice(val reflect.Value, rows *sql.Rows) error {
 	}
 
 	// 先导出数据到map中
-	mapped, err := Fetch2Maps(false, rows)
+	mapped, err := Map(false, rows)
 	if err != nil {
 		return err
 	}
@@ -198,7 +197,7 @@ func fetchObjToSlice(val reflect.Value, rows *sql.Rows) error {
 //      age   int `orm:"name(Age)"` // 小写不会被导出。
 //      Count int `orm:"-"`         // 不会匹配与该字段对应的列。
 //  }
-func Fetch2Objs(obj interface{}, rows *sql.Rows) (err error) {
+func Obj(obj interface{}, rows *sql.Rows) (err error) {
 	val := reflect.ValueOf(obj)
 
 	switch val.Kind() {
@@ -219,153 +218,4 @@ func Fetch2Objs(obj interface{}, rows *sql.Rows) (err error) {
 	default:
 		return fmt.Errorf("不允许的数据类型：[%v]", val.Kind())
 	}
-}
-
-// 将rows中的所有或一行数据导出到map[string]interface{}中。
-// 若once值为true，则只导出第一条数据。
-func Fetch2Maps(once bool, rows *sql.Rows) ([]map[string]interface{}, error) {
-	cols, err := rows.Columns()
-	if err != nil {
-		return nil, err
-	}
-
-	// 临时缓存，用于保存从rows中读取出来的一行。
-	buff := make([]interface{}, len(cols))
-	for i, _ := range cols {
-		var value interface{}
-		buff[i] = &value
-	}
-
-	var data []map[string]interface{}
-	for rows.Next() {
-		if err := rows.Scan(buff...); err != nil {
-			return nil, err
-		}
-
-		line := make(map[string]interface{}, len(cols))
-		for i, v := range cols {
-			if buff[i] == nil {
-				continue
-			}
-			value := reflect.Indirect(reflect.ValueOf(buff[i]))
-			line[v] = value.Interface()
-		}
-
-		data = append(data, line)
-		if once {
-			return data, nil
-		}
-	}
-
-	return data, nil
-}
-
-// 将rows中的数据导出到一个map[string]string中。
-// 功能上与Fetch2Maps()上一样，但map的键值固定为string。
-func Fetch2MapsString(once bool, rows *sql.Rows) (data []map[string]string, err error) {
-	cols, err := rows.Columns()
-	if err != nil {
-		return nil, err
-	}
-
-	buf := make([]interface{}, len(cols))
-	for k, _ := range buf {
-		var val string
-		buf[k] = &val
-	}
-
-	for rows.Next() {
-		if err = rows.Scan(buf...); err != nil {
-			return nil, err
-		}
-
-		line := make(map[string]string, len(cols))
-		for i, v := range cols {
-			line[v] = *(buf[i].(*string))
-		}
-
-		data = append(data, line)
-
-		if once {
-			return data, nil
-		}
-	}
-	return data, nil
-}
-
-// 导出rows中某列的所有或一行数据。
-// once若为true，则只导出第一条数据的指定列。
-// colName指定需要导出的列名，若不指定了不存在的名称，返回error；
-func FetchColumn(once bool, colName string, rows *sql.Rows) ([]interface{}, error) {
-	cols, err := rows.Columns()
-	if err != nil {
-		return nil, err
-	}
-
-	index := -1 // 该列名在所rows.Columns()中的索引号
-	buff := make([]interface{}, len(cols))
-	for i, v := range cols {
-		var value interface{}
-		buff[i] = &value
-
-		if colName == v { // 获取index的值
-			index = i
-		}
-	}
-
-	if index == -1 {
-		return nil, errors.New("指定的名不存在")
-	}
-
-	var data []interface{}
-	for rows.Next() {
-		if err := rows.Scan(buff...); err != nil {
-			return nil, err
-		}
-		value := reflect.Indirect(reflect.ValueOf(buff[index]))
-		data = append(data, value.Interface())
-		if once {
-			return data, nil
-		}
-	}
-
-	return data, nil
-}
-
-// 导出rows中某列的所有或是一行数据。
-// 除了返回的为[]string以外，其它功能同FetchColumns()。
-func FetchColumnString(once bool, colName string, rows *sql.Rows) ([]string, error) {
-	cols, err := rows.Columns()
-	if err != nil {
-		return nil, err
-	}
-
-	index := -1 // 该列名在所rows.Columns()中的索引号
-	buff := make([]interface{}, len(cols))
-	for i, v := range cols {
-		var value string
-		buff[i] = &value
-
-		if colName == v { // 获取index的值
-			index = i
-		}
-		// TODO(caixw) 用不到的列，直接赋值为nil，性能上会不会有所提升?
-	}
-
-	if index == -1 {
-		return nil, fmt.Errorf("指定的名[%v]不存在", colName)
-	}
-
-	var data []string
-	for rows.Next() {
-		if err := rows.Scan(buff...); err != nil {
-			return nil, err
-		}
-		data = append(data, *(buff[index].(*string)))
-		if once {
-			return data, nil
-		}
-	}
-
-	return data, nil
 }

@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/caixw/lib.go/orm/core"
-	"github.com/caixw/lib.go/orm/util"
+	"github.com/caixw/lib.go/orm/fetch"
 )
 
 const (
@@ -641,7 +641,7 @@ func (s *Select) Fetch2Map(args ...interface{}) (map[string]interface{}, error) 
 	}
 	defer rows.Close()
 
-	data, err := util.Fetch2Maps(true, rows)
+	data, err := fetch.Map(true, rows)
 	if err != nil {
 		return nil, err
 	}
@@ -657,7 +657,7 @@ func (s *Select) Fetch2Maps(args ...interface{}) ([]map[string]interface{}, erro
 	}
 	defer rows.Close()
 
-	data, err := util.Fetch2Maps(true, rows)
+	data, err := fetch.Map(true, rows)
 	if err != nil {
 		return nil, err
 	}
@@ -673,7 +673,7 @@ func (s *Select) FetchColumn(col string, args ...interface{}) (interface{}, erro
 	}
 	defer rows.Close()
 
-	data, err := util.FetchColumn(true, col, rows)
+	data, err := fetch.Column(true, col, rows)
 	if err != nil {
 		return nil, err
 	}
@@ -689,7 +689,7 @@ func (s *Select) FetchColumns(col string, args ...interface{}) ([]interface{}, e
 	}
 	defer rows.Close()
 
-	data, err := util.FetchColumn(false, col, rows)
+	data, err := fetch.Column(false, col, rows)
 	if err != nil {
 		return nil, err
 	}
@@ -725,9 +725,9 @@ func (s *Select) Fetch(v interface{}, args ...interface{}) error {
 		}
 		vv.Set(reflect.ValueOf(mapped))
 	case reflect.Slice:
-		return util.Fetch2Objs(vv.Interface(), rows)
+		return fetch.Obj(vv.Interface(), rows)
 	case reflect.Struct:
-		return util.Fetch2Objs(vv.Interface(), rows)
+		return fetch.Obj(vv.Interface(), rows)
 	default:
 		return errors.New("只支持slice,map和struct指针")
 	}

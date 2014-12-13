@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
-package util
+package fetch
 
 import (
 	"database/sql"
@@ -94,7 +94,7 @@ func closeDB(db *sql.DB, a *assert.Assertion) {
 		FileNotExists(testDBFile)
 }
 
-func TestFetch2Objs(t *testing.T) {
+func TestObj(t *testing.T) {
 	a := assert.New(t)
 	db := initDB(a)
 	defer closeDB(db, a)
@@ -110,7 +110,7 @@ func TestFetch2Objs(t *testing.T) {
 		&FetchUser{},
 	}
 
-	a.NotError(Fetch2Objs(&objs, rows))
+	a.NotError(Obj(&objs, rows))
 
 	a.Equal([]*FetchUser{
 		&FetchUser{Id: 0, Email: "email-0"},
@@ -124,7 +124,7 @@ func TestFetch2Objs(t *testing.T) {
 	objs = []*FetchUser{
 		&FetchUser{},
 	}
-	a.NotError(Fetch2Objs(&objs, rows))
+	a.NotError(Obj(&objs, rows))
 	a.Equal(len(objs), 2)
 	a.Equal([]*FetchUser{
 		&FetchUser{Id: 0, Email: "email-0"},
@@ -138,7 +138,7 @@ func TestFetch2Objs(t *testing.T) {
 	objs = []*FetchUser{
 		&FetchUser{},
 	}
-	a.NotError(Fetch2Objs(objs, rows)) // 非指针传递
+	a.NotError(Obj(objs, rows)) // 非指针传递
 	a.Equal(len(objs), 1)
 	a.Equal([]*FetchUser{
 		&FetchUser{Id: 0, Email: "email-0"},
@@ -152,7 +152,7 @@ func TestFetch2Objs(t *testing.T) {
 		&FetchUser{},
 		&FetchUser{},
 	}
-	a.NotError(Fetch2Objs(&objs, rows))
+	a.NotError(Obj(&objs, rows))
 	a.Equal([]*FetchUser{
 		&FetchUser{Id: 0, Email: "email-0"},
 		&FetchUser{Id: 1, Email: "email-1"},
@@ -165,7 +165,7 @@ func TestFetch2Objs(t *testing.T) {
 	array := [1]*FetchUser{
 		&FetchUser{},
 	}
-	a.Error(Fetch2Objs(array, rows)) // 非指针传递，出错
+	a.Error(Obj(array, rows)) // 非指针传递，出错
 	a.NotError(rows.Close())
 
 	// test6:数组指针传递，不会增长数组长度。
@@ -173,7 +173,7 @@ func TestFetch2Objs(t *testing.T) {
 	array = [1]*FetchUser{
 		&FetchUser{},
 	}
-	a.NotError(Fetch2Objs(&array, rows))
+	a.NotError(Obj(&array, rows))
 	a.Equal([1]*FetchUser{
 		&FetchUser{Id: 0, Email: "email-0"},
 	}, array)
@@ -182,128 +182,13 @@ func TestFetch2Objs(t *testing.T) {
 	// test7:obj为一个struct指针。
 	rows, err = db.Query(sql)
 	obj := FetchUser{}
-	a.NotError(Fetch2Objs(&obj, rows))
+	a.NotError(Obj(&obj, rows))
 	a.Equal(FetchUser{Id: 0, Email: "email-0"}, obj)
 	a.NotError(rows.Close())
 
 	// test8:obj为一个struct。这将返回错误信息
 	rows, err = db.Query(sql)
 	obj = FetchUser{}
-	a.Error(Fetch2Objs(obj, rows))
-	a.NotError(rows.Close())
-}
-
-func TestFetch2Maps(t *testing.T) {
-	a := assert.New(t)
-	db := initDB(a)
-	defer closeDB(db, a)
-
-	sql := `SELECT id,Email FROM user WHERE id<2 ORDER BY id`
-	rows, err := db.Query(sql)
-	a.NotError(err).NotNil(rows)
-
-	mapped, err := Fetch2Maps(false, rows)
-	a.NotError(err).NotNil(mapped)
-
-	a.Equal([]map[string]interface{}{
-		map[string]interface{}{"id": 0, "Email": "email-0"},
-		map[string]interface{}{"id": 1, "Email": "email-1"},
-	}, mapped)
-	a.NotError(rows.Close())
-
-	// 读取一行
-	rows, err = db.Query(sql)
-	a.NotError(err).NotNil(rows)
-
-	mapped, err = Fetch2Maps(true, rows)
-	a.NotError(err).NotNil(mapped)
-
-	a.Equal([]map[string]interface{}{
-		map[string]interface{}{"id": 0, "Email": "email-0"},
-	}, mapped)
-	a.NotError(rows.Close())
-}
-
-func TestFetch2MapsString(t *testing.T) {
-	a := assert.New(t)
-	db := initDB(a)
-	defer closeDB(db, a)
-
-	sql := `SELECT id,Email FROM user WHERE id<2 ORDER BY id`
-	rows, err := db.Query(sql)
-	a.NotError(err).NotNil(rows)
-
-	mapped, err := Fetch2MapsString(false, rows)
-	a.NotError(err).NotNil(mapped)
-
-	a.Equal(mapped, []map[string]string{
-		map[string]string{"id": "0", "Email": "email-0"},
-		map[string]string{"id": "1", "Email": "email-1"},
-	})
-
-	a.NotError(rows.Close())
-
-	// 读取一行
-	rows, err = db.Query(sql)
-	a.NotError(err).NotNil(rows)
-
-	mapped, err = Fetch2MapsString(true, rows)
-	a.NotError(err).NotNil(mapped)
-
-	a.Equal(mapped, []map[string]string{
-		map[string]string{"id": "0", "Email": "email-0"},
-	})
-	a.NotError(rows.Close())
-}
-
-func TestFetchColumn(t *testing.T) {
-	a := assert.New(t)
-	db := initDB(a)
-	defer closeDB(db, a)
-
-	sql := `SELECT id FROM user WHERE id<2 ORDER BY id`
-	rows, err := db.Query(sql)
-	a.NotError(err).NotNil(rows)
-
-	cols, err := FetchColumn(false, "id", rows)
-	a.NotError(err).NotNil(cols)
-
-	a.Equal([]interface{}{0, 1}, cols)
-	a.NotError(rows.Close())
-
-	// 读取一行
-	rows, err = db.Query(sql)
-	a.NotError(err).NotNil(rows)
-
-	cols, err = FetchColumn(true, "id", rows)
-	a.NotError(err).NotNil(cols)
-
-	a.Equal([]interface{}{0}, cols)
-	a.NotError(rows.Close())
-}
-
-func TestFetchColumnString(t *testing.T) {
-	a := assert.New(t)
-	db := initDB(a)
-	defer closeDB(db, a)
-
-	sql := `SELECT id FROM user WHERE id<2 ORDER BY id`
-	rows, err := db.Query(sql)
-	a.NotError(err).NotNil(rows)
-
-	cols, err := FetchColumnString(false, "id", rows)
-	a.NotError(err).NotNil(cols)
-
-	a.Equal([]string{"0", "1"}, cols)
-	a.NotError(rows.Close())
-
-	// 读取一行
-	rows, err = db.Query(sql)
-	a.NotError(err).NotNil(rows)
-
-	cols, err = FetchColumnString(true, "id", rows)
-	a.NotError(err).NotNil(cols)
-
-	a.Equal([]string{"0"}, cols)
+	a.Error(Obj(obj, rows))
 	a.NotError(rows.Close())
 }

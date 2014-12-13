@@ -3,4 +3,4 @@
 // license that can be found in the LICENSE file.
 
 // 几个用于导出sql.Rows中数据的方法。
-package util
+package fetch

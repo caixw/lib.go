@@ -11,7 +11,7 @@ import (
 	"regexp"
 
 	"github.com/caixw/lib.go/orm/core"
-	"github.com/caixw/lib.go/orm/util"
+	"github.com/caixw/lib.go/orm/fetch"
 )
 
 type Postgres struct{}
@@ -186,7 +186,7 @@ func (p *Postgres) getCols(db core.DB, model *core.Model) (map[string]interface{
 	}
 	defer rows.Close()
 
-	dbCols, err := util.FetchColumnString(false, "column_name", rows)
+	dbCols, err := fetch.ColumnString(false, "column_name", rows)
 	if err != nil {
 		return nil, nil
 	}
@@ -209,7 +209,7 @@ func (p *Postgres) deleteConstraints(db core.DB, model *core.Model) error {
 	}
 	defer rows.Close()
 
-	conts, err := util.FetchColumnString(false, "conname", rows)
+	conts, err := fetch.ColumnString(false, "conname", rows)
 	if err != nil {
 		return err
 	}
