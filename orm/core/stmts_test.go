@@ -165,7 +165,7 @@ func (f *fakeDB) close() {
 }
 
 func (f *fakeDB) Name() string {
-	return ""
+	return "test"
 }
 
 // stmts仅用到了Prepare接口函数

@@ -11,6 +11,7 @@ import (
 
 	"github.com/caixw/lib.go/orm/core"
 	"github.com/caixw/lib.go/orm/dialect"
+	"github.com/caixw/lib.go/orm/sqlbuilder"
 )
 
 // 实现两个internal.DB接口，分别对应sql包的DB和Tx结构，
@@ -124,20 +125,20 @@ func (e *Engine) Create(obj interface{}) error {
 	return e.Dialect().CreateTable(e, m)
 }
 
-func (e *Engine) Update() *Update {
-	return newUpdate(e)
+func (e *Engine) Update() *sqlbuilder.Update {
+	return sqlbuilder.NewUpdate(e)
 }
 
-func (e *Engine) Delete() *Delete {
-	return newDelete(e)
+func (e *Engine) Delete() *sqlbuilder.Delete {
+	return sqlbuilder.NewDelete(e)
 }
 
-func (e *Engine) Insert() *Insert {
-	return newInsert(e)
+func (e *Engine) Insert() *sqlbuilder.Insert {
+	return sqlbuilder.NewInsert(e)
 }
 
-func (e *Engine) Select() *Select {
-	return newSelect(e)
+func (e *Engine) Select() *sqlbuilder.Select {
+	return sqlbuilder.NewSelect(e)
 }
 
 // 事务对象
@@ -197,20 +198,20 @@ func (t *Tx) Rollback() {
 	t.tx.Rollback()
 }
 
-func (t *Tx) Update() *Update {
-	return newUpdate(t)
+func (t *Tx) Update() *sqlbuilder.Update {
+	return sqlbuilder.NewUpdate(t)
 }
 
-func (t *Tx) Delete() *Delete {
-	return newDelete(t)
+func (t *Tx) Delete() *sqlbuilder.Delete {
+	return sqlbuilder.NewDelete(t)
 }
 
-func (t *Tx) Insert() *Insert {
-	return newInsert(t)
+func (t *Tx) Insert() *sqlbuilder.Insert {
+	return sqlbuilder.NewInsert(t)
 }
 
-func (t *Tx) Select() *Select {
-	return newSelect(t)
+func (t *Tx) Select() *sqlbuilder.Select {
+	return sqlbuilder.NewSelect(t)
 }
 
 // 查找缓存的sql.Stmt，在未找到的情况下，第二个参数返回false
