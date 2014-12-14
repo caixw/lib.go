@@ -6,6 +6,7 @@ package sqlbuilder
 
 import (
 	"bytes"
+	"errors"
 	"strings"
 )
 
@@ -14,137 +15,130 @@ const (
 	or
 )
 
-// whereExpr语句部分
-type whereExpr struct {
-	cond     *bytes.Buffer
-	condArgs []interface{}
-}
-
 // 重置所有状态为初始值。
-func (w *whereExpr) Reset() {
+func (w *SQL) resetWhere() {
 	w.cond.Reset()
 	w.condArgs = w.condArgs[:0]
 }
 
-// 所有where子句的构建，最终都调用此方法来写入实例中。
+// SQL.And()的别名
+func (s *SQL) Where(cond string, args ...interface{}) *SQL {
+	return s.And(cond, args...)
+}
+
+func (s *SQL) And(cond string, args ...interface{}) *SQL {
+	return s.build(and, cond, args...)
+}
+
+func (s *SQL) Or(cond string, args ...interface{}) *SQL {
+	return s.build(or, cond, args...)
+}
+
+func (s *SQL) AndBetween(col string, start, end interface{}) *SQL {
+	return s.between(and, col, start, end)
+}
+
+func (s *SQL) OrBetween(col string, start, end interface{}) *SQL {
+	return s.between(or, col, start, end)
+}
+
+// SQL.AndBetween()的别名
+func (s *SQL) Between(col string, start, end interface{}) *SQL {
+	return s.AndBetween(col, start, end)
+}
+
+func (s *SQL) AndIn(col string, args ...interface{}) *SQL {
+	return s.in(and, col, args...)
+}
+
+func (s *SQL) OrIn(col string, args ...interface{}) *SQL {
+	return s.in(or, col, args...)
+}
+
+// SQL.AndIn()的别名
+func (s *SQL) In(col string, args ...interface{}) *SQL {
+	return s.AndIn(col, args...)
+}
+
+func (s *SQL) AndIsNull(col string) *SQL {
+	return s.isNull(and, col)
+}
+func (s *SQL) OrIsNull(col string) *SQL {
+	return s.isNull(or, col)
+}
+
+// SQL.AndIsNull()的别名
+func (s *SQL) IsNull(col string) *SQL {
+	return s.AndIsNull(col)
+}
+
+func (s *SQL) AndIsNotNull(col string) *SQL {
+	return s.isNotNull(and, col)
+}
+
+func (s *SQL) OrIsNotNull(col string) *SQL {
+	return s.isNotNull(or, col)
+}
+
+// SQL.AndIsNotNull()的别名
+func (s *SQL) IsNotNull(col string) *SQL {
+	return s.AndIsNull(col)
+}
+
+// 所有SQL子句的构建，最终都调用此方法来写入实例中。
 // op 与前一个语句的连接符号，可以是and或是or常量；
 // cond 条件语句，值只能是占位符，不能直接写值；
 // condArgs 占位符对应的值。
-//  w := newwhereExpr(...)
+//  w := newSQL(...)
 //  w.build(and, "username=='abc'") // 错误：不能使用abc，只能使用？占位符。
 //  w.build(and, "username=?", "abc") // 正确，将转换成: and username='abc'
-func (w *whereExpr) build(op int, cond string, condArgs ...interface{}) *whereExpr {
+func (s *SQL) build(op int, cond string, args ...interface{}) *SQL {
 	switch {
-	case w.cond.Len() == 0:
-		w.cond.WriteString(" WHERE(")
+	case s.cond.Len() == 0:
+		s.cond.WriteString(" WHERE(")
 	case op == and:
-		w.cond.WriteString(" AND(")
+		s.cond.WriteString(" AND(")
 	case op == or:
-		w.cond.WriteString(" OR(")
+		s.cond.WriteString(" OR(")
 	default:
-		panic("无效的op操作符")
+		s.errors = append(s.errors, errors.New("无效的op操作符"))
 	}
 
-	w.cond.WriteString(cond)
-	w.cond.WriteByte(')')
+	s.cond.WriteString(cond)
+	s.cond.WriteByte(')')
 
-	w.condArgs = append(w.condArgs, condArgs...)
+	s.condArgs = append(s.condArgs, args...)
 
-	return w
+	return s
 }
 
-// 添加一条与前一条件语句关系为and的条件语句，若为第一条条件语句，则自动
-// 忽略and关系。
-func (w *whereExpr) And(cond string, condArgs ...interface{}) *whereExpr {
-	return w.build(and, cond, condArgs...)
-}
-
-// 添加一条与前一条件语句关系为or的条件语句，若为第一条条件语句，则自动
-// 忽略or关系。
-func (w *whereExpr) Or(cond string, condArgs ...interface{}) *whereExpr {
-	return w.build(or, cond, condArgs...)
-}
-
-// 添加In条件语句，与前一条的关系为And
-//  w.AndIn("age", 55,56,57) ==> WHERE age in(55,56,57)
-func (w *whereExpr) AndIn(col string, condArgs ...interface{}) *whereExpr {
-	return w.in(and, col, condArgs...)
-}
-
-func (w *whereExpr) OrIn(col string, condArgs ...interface{}) *whereExpr {
-	return w.in(or, col, condArgs...)
-}
-
-// whereExpr.AndIn()的别名
-func (w *whereExpr) In(col string, condArgs ...interface{}) *whereExpr {
-	return w.AndIn(col, condArgs...)
-}
-
-func (w *whereExpr) AndBetween(col string, start, end interface{}) *whereExpr {
-	return w.between(and, col, start, end)
-}
-
-func (w *whereExpr) OrBetween(col string, start, end interface{}) *whereExpr {
-	return w.between(or, col, start, end)
-}
-
-// whereExpr.AndBetween()的别名
-func (w *whereExpr) Between(col string, start, end interface{}) *whereExpr {
-	return w.AndBetween(col, start, end)
-}
-
-func (w *whereExpr) AndIsNull(col string) *whereExpr {
-	return w.isNull(and, col)
-}
-
-func (w *whereExpr) OrIsNull(col string) *whereExpr {
-	return w.isNull(or, col)
-}
-
-// whereExpr.AndIsNull()的别名
-func (w *whereExpr) IsNull(col string) *whereExpr {
-	return w.AndIsNull(col)
-}
-
-func (w *whereExpr) AndIsNotNull(col string) *whereExpr {
-	return w.isNotNull(and, col)
-}
-
-func (w *whereExpr) OrIsNotNull(col string) *whereExpr {
-	return w.isNotNull(or, col)
-}
-
-// whereExpr.AndIsNotNull()的别名
-func (w *whereExpr) IsNotNull(col string) *whereExpr {
-	return w.AndIsNotNull(col)
-}
-
-// where col in(v1,v2)语句的实现函数，供AndIn()和OrIn()函数调用。
-func (w *whereExpr) in(op int, col string, condArgs ...interface{}) *whereExpr {
-	if len(condArgs) <= 0 {
-		panic("condArgs参数不能为空")
+// SQL col in(v1,v2)语句的实现函数，供andIn()和orIn()函数调用。
+func (s *SQL) in(op int, col string, args ...interface{}) *SQL {
+	if len(args) <= 0 {
+		s.errors = append(s.errors, errors.New("condArgs参数不能为空"))
+		return s
 	}
 
 	cond := bytes.NewBufferString(col)
 	cond.WriteString(" IN(")
-	cond.WriteString(strings.Repeat("?,", len(condArgs)))
+	cond.WriteString(strings.Repeat("?,", len(s.condArgs)))
 	cond.Truncate(cond.Len() - 1) // 去掉最后的逗号
 	cond.WriteByte(')')
 
-	return w.build(op, cond.String(), condArgs...)
+	return s.build(op, cond.String(), s.condArgs...)
 }
 
-// where col between start and end 语句的实现函数，供AndBetween()和OrBetween()调用。
-func (w *whereExpr) between(op int, col string, start, end interface{}) *whereExpr {
-	return w.build(op, col+" BETWEEN ? AND ?", start, end)
+// SQL col between start and end 语句的实现函数，供andBetween()和orBetween()调用。
+func (s *SQL) between(op int, col string, start, end interface{}) *SQL {
+	return s.build(op, col+" BETWEEN ? AND ?", start, end)
 }
 
-// where col is null 语句的实现函数，供AndIsNull()和OrIsNull()调用。
-func (w *whereExpr) isNull(op int, col string) *whereExpr {
+// SQL col is null 语句的实现函数，供andIsNull()和orIsNull()调用。
+func (w *SQL) isNull(op int, col string) *SQL {
 	return w.build(op, col+" IS NULL")
 }
 
-// where col is not null 语句的实现函数，供AndIsNotNull()和OrIsNotNull()调用。
-func (w *whereExpr) isNotNull(op int, col string) *whereExpr {
+// SQL col is not null 语句的实现函数，供andIsNotNull()和orIsNotNull()调用。
+func (w *SQL) isNotNull(op int, col string) *SQL {
 	return w.build(op, col+" IS NOT NULL")
 }
