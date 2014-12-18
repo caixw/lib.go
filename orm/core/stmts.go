@@ -10,7 +10,7 @@ import (
 	"sync"
 )
 
-// 缓存sql.Stmt实例，方便再次调用。
+// sql.Stmt的缓存集合。
 type Stmts struct {
 	sync.Mutex
 	items map[string]*sql.Stmt

@@ -8,13 +8,21 @@ import (
 	"testing"
 
 	"github.com/caixw/lib.go/assert"
+	"github.com/caixw/lib.go/orm/dialect"
+
+	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/mattn/go-sqlite3"
 )
 
-// 测试engines的一些常用操作：New,Get,Close,CloseAll
+// 测试orm的一些常用操作：New,Get,Close,CloseAll
 func TestEngines(t *testing.T) {
 	a := assert.New(t)
 
-	e, err := New("fakedb2", "./test", "test", "test_")
+	// 注册dialect
+	a.NotError(dialect.Register("sqlite3", &dialect.Sqlite3{}))
+	a.NotError(dialect.Register("mysql", &dialect.Mysql{}))
+
+	e, err := New("sqlite3", "./test", "main", "main_")
 	a.NotError(err).NotNil(e)
 
 	// 不存在的实例
@@ -22,32 +30,32 @@ func TestEngines(t *testing.T) {
 	a.False(found).Nil(e)
 
 	// 获取注册的名为test的Engine实例
-	e, found = Get("test")
+	e, found = Get("main")
 	a.True(found).NotNil(e)
 
 	// 关闭之后，是否能再次正常获取
-	Close("test")
-	e, found = Get("test")
+	Close("main")
+	e, found = Get("main")
 	a.False(found).Nil(e)
 
 	// 重新添加2个Engine
 
-	e, err = New("fakedb2", "./test", "test", "test_")
+	e, err = New("mysql", "root:@/", "second", "second_")
 	a.NotError(err).NotNil(e)
 
-	e, err = New("fakedb1", "root:@/", "fakedb1", "fakedb1_")
+	e, err = New("sqlite3", "./test", "main", "main_")
 	a.NotError(err).NotNil(e)
 
-	e, found = Get("test")
+	e, found = Get("main")
 	a.True(found).NotNil(e)
 
-	e, found = Get("fakedb1")
+	e, found = Get("second")
 	a.True(found).NotNil(e)
 
 	// 关闭所有
 	CloseAll()
-	e, found = Get("test")
+	e, found = Get("main")
 	a.False(found).Nil(e)
-	e, found = Get("fakedb1")
+	e, found = Get("second")
 	a.False(found).Nil(e)
 }

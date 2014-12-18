@@ -33,28 +33,33 @@ func parseObj(v reflect.Value, ret *map[string]reflect.Value) error {
 
 		if field.Anonymous { // 匿名对象
 			parseObj(v.Field(i), ret)
+			continue
 		}
 
 		tagTxt := field.Tag.Get("orm")
-		if len(tagTxt) == 0 { // 不存在Struct tag
-			if unicode.IsUpper(rune(field.Name[0])) {
-				(*ret)[field.Name] = v.Field(i)
-			}
-			continue
+		if len(tagTxt) == 0 { // 不存在struct tag
+			goto FIELD_NAME
 		}
 
 		if tagTxt[0] == '-' { // 该字段被标记为忽略
 			continue
 		}
 
-		name, found := tag.Get(tagTxt, "name")
-		if !found { // 没有指定name属性，继续使用字段名
-			if unicode.IsUpper(rune(field.Name[0])) {
-				(*ret)[field.Name] = v.Field(i)
+		if name, found := tag.Get(tagTxt, "name"); found {
+			if _, found := (*ret)[name[0]]; found {
+				return fmt.Errorf("已存在相同名字的字段[%v]", field.Name)
 			}
+			(*ret)[name[0]] = v.Field(i)
 			continue
 		}
-		(*ret)[name[0]] = v.Field(i)
+
+	FIELD_NAME:
+		if unicode.IsUpper(rune(field.Name[0])) {
+			if _, found := (*ret)[field.Name]; found {
+				return fmt.Errorf("已存在相同名字的字段[%v]", field.Name)
+			}
+			(*ret)[field.Name] = v.Field(i)
+		}
 	} // end for
 	return nil
 }
@@ -176,8 +181,9 @@ func fetchObjToSlice(val reflect.Value, rows *sql.Rows) error {
 	return nil
 }
 
-// 将rows中的数据导出到obj中。obj只有在类型为slice指针时，才有可能
-// 随着rows的长度变化，否则其长度是固定的，具体可以为以下四种类型：
+// 将rows中的数据导出到obj中。obj只有在类型为slice指针时，
+// 才有可能随着rows的长度变化，否则其长度是固定的，
+// 具体可以为以下四种类型：
 //
 // struct指针：
 // 将rows中的第一条记录转换成obj对象。

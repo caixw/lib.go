@@ -17,14 +17,6 @@ import (
 	"github.com/caixw/lib.go/encoding/tag"
 )
 
-// model缓存
-var models = &modelsMap{items: map[reflect.Type]*Model{}}
-
-type modelsMap struct {
-	sync.Mutex
-	items map[reflect.Type]*Model
-}
-
 type conType int
 
 // 预定的约束类型，方便Model中使用。
@@ -51,6 +43,14 @@ func (t conType) String() string {
 	default:
 		return "<unknown>"
 	}
+}
+
+// model缓存
+var models = &modelsMap{items: map[reflect.Type]*Model{}}
+
+type modelsMap struct {
+	sync.Mutex
+	items map[reflect.Type]*Model
 }
 
 // go本身不支持struct级别的struct tag，所以想要给一个struct

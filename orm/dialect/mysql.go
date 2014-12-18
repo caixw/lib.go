@@ -36,8 +36,8 @@ func (m *Mysql) QuoteStr() (string, string) {
 }
 
 // implement core.Dialect.Limit()
-func (m *Mysql) LimitSQL(limit, offset int) (string, []interface{}) {
-	return mysqlLimitSQL(limit, offset)
+func (m *Mysql) LimitSQL(limit int, offset ...int) (string, []interface{}) {
+	return mysqlLimitSQL(limit, offset...)
 }
 
 // implement core.Dialect.SupportLastInsertId()

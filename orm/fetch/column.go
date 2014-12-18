@@ -12,15 +12,15 @@ import (
 )
 
 // 导出rows中某列的所有或一行数据。
-// once若为true，则只导出第一条数据的指定列。
-// colName指定需要导出的列名，若不指定了不存在的名称，返回error；
+// once若为true，则只导出第一条数据。
+// colName指定需要导出的列名，若不指定了不存在的名称，返回error。
 func Column(once bool, colName string, rows *sql.Rows) ([]interface{}, error) {
 	cols, err := rows.Columns()
 	if err != nil {
 		return nil, err
 	}
 
-	index := -1 // 该列名在所rows.Columns()中的索引号
+	index := -1 // colName列在rows.Columns()中的索引号
 	buff := make([]interface{}, len(cols))
 	for i, v := range cols {
 		var value interface{}
@@ -51,14 +51,14 @@ func Column(once bool, colName string, rows *sql.Rows) ([]interface{}, error) {
 }
 
 // 导出rows中某列的所有或是一行数据。
-// 除了返回的为[]string以外，其它功能同Columns()。
+// 功能等同于Columns()函数，但是返回值是[]string而不是[]interface{}。
 func ColumnString(once bool, colName string, rows *sql.Rows) ([]string, error) {
 	cols, err := rows.Columns()
 	if err != nil {
 		return nil, err
 	}
 
-	index := -1 // 该列名在所rows.Columns()中的索引号
+	index := -1 // colName列在rows.Columns()中的索引号
 	buff := make([]interface{}, len(cols))
 	for i, v := range cols {
 		var value string
@@ -67,7 +67,6 @@ func ColumnString(once bool, colName string, rows *sql.Rows) ([]string, error) {
 		if colName == v { // 获取index的值
 			index = i
 		}
-		// TODO(caixw) 用不到的列，直接赋值为nil，性能上会不会有所提升?
 	}
 
 	if index == -1 {

@@ -11,7 +11,6 @@ import (
 
 	"github.com/caixw/lib.go/orm/core"
 	"github.com/caixw/lib.go/orm/dialect"
-	"github.com/caixw/lib.go/orm/sqlbuilder"
 )
 
 // 实现两个internal.DB接口，分别对应sql包的DB和Tx结构，
@@ -23,6 +22,7 @@ type Engine struct {
 	d      core.Dialect
 	db     *sql.DB
 	stmts  *core.Stmts
+	sql    *SQL // 内置的SQL引擎，用于执行Update等操作
 }
 
 func newEngine(driverName, dataSourceName, prefix string) (*Engine, error) {
@@ -43,6 +43,7 @@ func newEngine(driverName, dataSourceName, prefix string) (*Engine, error) {
 		name:   d.GetDBName(dataSourceName),
 	}
 	inst.stmts = core.NewStmts(inst)
+	inst.sql = inst.SQL()
 
 	return inst, nil
 }
@@ -105,15 +106,43 @@ func (e *Engine) Begin() (*Tx, error) {
 		return nil, err
 	}
 
-	return &Tx{
+	ret := &Tx{
 		engine: e,
 		tx:     tx,
-	}, nil
+	}
+	ret.sql = ret.SQL()
+	return ret, nil
 }
 
 // 查找缓存的sql.Stmt，在未找到的情况下，第二个参数返回false
 func (e *Engine) Stmt(name string) (*sql.Stmt, bool) {
 	return e.stmts.Get(name)
+}
+
+func (e *Engine) SQL() *SQL {
+	return newSQL(e)
+}
+
+func (e *Engine) Where(cond string, args ...interface{}) *SQL {
+	return e.SQL().Where(cond, args...)
+}
+
+// 插入一个或多个数据
+// v可以是对象或是对象数组
+func (e *Engine) Insert(v interface{}) error {
+	return insertMult(e.sql, v)
+}
+
+// 更新一个或多个类型。
+// 更新依据为每个对象的主键或是唯一索引列。
+// 若不存在此两个类型的字段，则返回错误信息。
+func (e *Engine) Update(v interface{}) error {
+	return updateMult(e.sql, v)
+}
+
+// 删除指定的数据对象。
+func (e *Engine) Delete(v interface{}) error {
+	return deleteMult(e.sql, v)
 }
 
 // 根据obj创建表
@@ -123,20 +152,4 @@ func (e *Engine) Create(obj interface{}) error {
 		return err
 	}
 	return e.Dialect().CreateTable(e, m)
-}
-
-func (e *Engine) Update() *sqlbuilder.Update {
-	return sqlbuilder.NewUpdate(e)
-}
-
-func (e *Engine) Delete() *sqlbuilder.Delete {
-	return sqlbuilder.NewDelete(e)
-}
-
-func (e *Engine) Insert() *sqlbuilder.Insert {
-	return sqlbuilder.NewInsert(e)
-}
-
-func (e *Engine) Select() *sqlbuilder.Select {
-	return sqlbuilder.NewSelect(e)
 }

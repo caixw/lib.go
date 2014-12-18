@@ -44,8 +44,8 @@ func (s *Sqlite3) GetDBName(dataSource string) string {
 }
 
 // implement core.Dialect.LimitSQL()
-func (s *Sqlite3) LimitSQL(limit, offset int) (sql string, args []interface{}) {
-	return mysqlLimitSQL(limit, offset)
+func (s *Sqlite3) LimitSQL(limit int, offset ...int) (sql string, args []interface{}) {
+	return mysqlLimitSQL(limit, offset...)
 }
 
 // implement core.Dialect.CreateTable()

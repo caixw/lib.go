@@ -14,14 +14,22 @@ func TestMysqlLimitSQL(t *testing.T) {
 	a := assert.New(t)
 
 	sql, args := mysqlLimitSQL(5, 0)
-	a.Equal(sql, " LIMIT ? OFFSET ? ").
+	a.StringEqual(sql, " LIMIT ? OFFSET ? ", style).
 		Equal(args, []interface{}{5, 0})
+
+	sql, args = mysqlLimitSQL(5)
+	a.StringEqual(sql, "LIMIT ?", style).
+		Equal(args, []interface{}{5})
 }
 
 func TestOracleLimitSQL(t *testing.T) {
 	a := assert.New(t)
 
 	sql, args := oracleLimitSQL(5, 0)
-	a.Equal(sql, " OFFSET ? ROWS FETCH NEXT ? ROWS ONLY ").
+	a.StringEqual(sql, " OFFSET ? ROWS FETCH NEXT ? ROWS ONLY ", style).
 		Equal(args, []interface{}{0, 5})
+
+	sql, args = oracleLimitSQL(5)
+	a.StringEqual(sql, "FETCH NEXT ? ROWS ONLY ", style).
+		Equal(args, []interface{}{5})
 }
