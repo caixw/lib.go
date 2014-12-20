@@ -6,6 +6,7 @@ package dialect
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"reflect"
 	"runtime"
@@ -75,7 +76,15 @@ func (s *Sqlite3) hasTable(db core.DB, tableName string) (bool, error) {
 
 // implement base.sqlType()
 // 具体规则参照:http://www.sqlite.org/datatype3.html
-func (s *Sqlite3) sqlType(buf *bytes.Buffer, col *core.Column) {
+func (s *Sqlite3) sqlType(buf *bytes.Buffer, col *core.Column) error {
+	if col == nil {
+		return errors.New("col参数是个空值")
+	}
+
+	if col.GoType.Kind() == reflect.Invalid {
+		return errors.New("无效的col.GoType值")
+	}
+
 	switch col.GoType.Kind() {
 	case reflect.String:
 		buf.WriteString("TEXT")
@@ -87,7 +96,7 @@ func (s *Sqlite3) sqlType(buf *bytes.Buffer, col *core.Column) {
 	case reflect.Array, reflect.Slice:
 		k := col.GoType.Elem().Kind()
 		if (k != reflect.Int8) && (k != reflect.Int32) {
-			panic("不支持数组类型")
+			return errors.New("不支持数组类型")
 		}
 		buf.WriteString("TEXT")
 	case reflect.Struct:
@@ -104,6 +113,8 @@ func (s *Sqlite3) sqlType(buf *bytes.Buffer, col *core.Column) {
 			buf.WriteString("DATETIME")
 		}
 	}
+
+	return nil
 }
 
 // 创建表
@@ -116,7 +127,9 @@ func (s *Sqlite3) createTable(db core.DB, model *core.Model) error {
 
 	// 写入字段信息
 	for _, col := range model.Cols {
-		createColSQL(s, buf, col)
+		if err := createColSQL(s, buf, col); err != nil {
+			return err
+		}
 
 		if col.IsAI() {
 			buf.WriteString(" AUTOINCRMENT")

@@ -6,6 +6,7 @@ package dialect
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"reflect"
 	"regexp"
@@ -226,7 +227,15 @@ func (p *Postgres) deleteConstraints(db core.DB, model *core.Model) error {
 
 // implement base.sqlType
 // 将col转换成sql类型，并写入buf中。
-func (p *Postgres) sqlType(buf *bytes.Buffer, col *core.Column) {
+func (p *Postgres) sqlType(buf *bytes.Buffer, col *core.Column) error {
+	if col == nil {
+		return errors.New("col参数是个空值")
+	}
+
+	if col.GoType.Kind() == reflect.Invalid {
+		return errors.New("无效的col.GoType值")
+	}
+
 	switch col.GoType.Kind() {
 	case reflect.Bool:
 		buf.WriteString("BOOLEAN")
@@ -258,7 +267,7 @@ func (p *Postgres) sqlType(buf *bytes.Buffer, col *core.Column) {
 	case reflect.Slice, reflect.Array: // []rune,[]byte当作字符串处理
 		k := col.GoType.Elem().Kind()
 		if (k != reflect.Int8) && (k != reflect.Int32) {
-			panic("不支持数组类型")
+			return errors.New("不支持数组类型")
 		}
 
 		if col.Len1 < 65533 {
@@ -286,6 +295,8 @@ func (p *Postgres) sqlType(buf *bytes.Buffer, col *core.Column) {
 			buf.WriteString("TIME")
 		}
 	default:
-		panic(fmt.Sprintf("不支持的类型:[%v]", col.GoType.Name()))
+		return fmt.Errorf("不支持的类型:[%v]", col.GoType.Name())
 	}
+
+	return nil
 }

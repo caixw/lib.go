@@ -6,6 +6,7 @@ package dialect
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -61,7 +62,15 @@ func (m *Mysql) CreateTable(db core.DB, model *core.Model) error {
 }
 
 // implement base.sqlType()
-func (m *Mysql) sqlType(buf *bytes.Buffer, col *core.Column) {
+func (m *Mysql) sqlType(buf *bytes.Buffer, col *core.Column) error {
+	if col == nil {
+		return errors.New("col参数是个空值")
+	}
+
+	if col.GoType.Kind() == reflect.Invalid {
+		return errors.New("无效的col.GoType值")
+	}
+
 	addIntLen := func() {
 		if col.Len1 > 0 {
 			buf.WriteByte('(')
@@ -69,6 +78,7 @@ func (m *Mysql) sqlType(buf *bytes.Buffer, col *core.Column) {
 			buf.WriteByte(')')
 		}
 	}
+
 	switch col.GoType.Kind() {
 	case reflect.Bool:
 		buf.WriteString("BOOLEAN")
@@ -110,7 +120,7 @@ func (m *Mysql) sqlType(buf *bytes.Buffer, col *core.Column) {
 	case reflect.Slice, reflect.Array: // []rune,[]byte当作字符串处理
 		k := col.GoType.Elem().Kind()
 		if (k != reflect.Int8) && (k != reflect.Int32) {
-			panic("不支持数组类型")
+			return errors.New("不支持数组类型")
 		}
 
 		if col.Len1 < 65533 {
@@ -135,8 +145,10 @@ func (m *Mysql) sqlType(buf *bytes.Buffer, col *core.Column) {
 			buf.WriteString("DATETIME")
 		}
 	default:
-		panic(fmt.Sprintf("不支持的类型:[%v]", col.GoType.Name()))
+		return fmt.Errorf("不支持的类型:[%v]", col.GoType.Name())
 	}
+
+	return nil
 }
 
 // 创建表
@@ -149,7 +161,9 @@ func (m *Mysql) createTable(db core.DB, model *core.Model) error {
 
 	// 写入字段信息
 	for _, col := range model.Cols {
-		createColSQL(m, buf, col)
+		if err := createColSQL(m, buf, col); err != nil {
+			return err
+		}
 
 		if col.IsAI() {
 			buf.WriteString(" AUTO_INCRMENT")

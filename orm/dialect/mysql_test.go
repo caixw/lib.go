@@ -5,9 +5,12 @@
 package dialect
 
 import (
+	"bytes"
+	"reflect"
 	"testing"
 
 	"github.com/caixw/lib.go/assert"
+	"github.com/caixw/lib.go/orm/core"
 )
 
 var _ base = &Mysql{}
@@ -22,4 +25,15 @@ func TestMysqlGetDBName(t *testing.T) {
 	a.Equal(m.GetDBName("root:password@tcp(localhost:3066)/dbname"), "dbname")
 	a.Equal(m.GetDBName("root:password@unix(/tmp/mysql.lock)/dbname?loc=Local"), "dbname")
 	a.Equal(m.GetDBName("root:/"), "")
+}
+
+func TestMysqlSQLType(t *testing.T) {
+	a := assert.New(t)
+	buf := bytes.NewBufferString("")
+	col := &core.Column{
+		GoType: reflect.TypeOf(1),
+	}
+
+	m.sqlType(buf, col)
+
 }

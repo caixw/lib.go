@@ -15,17 +15,19 @@ type base interface {
 	core.Dialect
 
 	// 将col转换成sql类型，并写入buf中。
-	sqlType(buf *bytes.Buffer, col *core.Column)
+	sqlType(buf *bytes.Buffer, col *core.Column) error
 }
 
 // 用于产生在createTable中使用的普通列信息表达式，不包含autoincrement和primary key的关键字。
-func createColSQL(b base, buf *bytes.Buffer, col *core.Column) {
+func createColSQL(b base, buf *bytes.Buffer, col *core.Column) error {
 	// col_name VARCHAR(100) NOT NULL DEFAULT 'abc'
 	buf.WriteString(col.Name)
 	buf.WriteByte(' ')
 
 	// 写入字段类型
-	b.sqlType(buf, col)
+	if err := b.sqlType(buf, col); err != nil {
+		return err
+	}
 
 	if !col.Nullable {
 		buf.WriteString(" NOT NULL")
@@ -36,6 +38,8 @@ func createColSQL(b base, buf *bytes.Buffer, col *core.Column) {
 		buf.WriteString(col.Default)
 		buf.WriteByte('\'')
 	}
+
+	return nil
 }
 
 // create table语句中pk约束的语句
